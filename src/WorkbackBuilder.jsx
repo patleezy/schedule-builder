@@ -454,7 +454,7 @@ function ManageOwners({ owners, onAddOwner, onDeleteOwner }) {
         <div style={{ marginBottom: 12 }}>
           <div style={{ fontSize: 8, letterSpacing: 2, color: "#2a2a2a", marginBottom: 8 }}>CUSTOM</div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            {customs.map(([k, v]) => (<div key={k} style={{ display: "flex", alignItems: "center" }}><div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", background: v.color + "12", border: `1px solid ${v.color}38`, borderRight: "none", borderRadius: "3px 0 0 3px" }}><div style={{ width: 7, height: 7, borderRadius: 2, background: v.color, flexShrink: 0 }} /><span style={{ fontSize: 11, color: v.color }}>{v.label}</span></div><button onClick={() => onDeleteOwner(k)} title="Remove owner" style={{ padding: "4px 9px", background: v.color + "12", border: `1px solid ${v.color}38`, borderLeft: "none", color: v.color, borderRadius: "0 3px 3px 0", cursor: "pointer", fontSize: 13, lineHeight: 1 }}>×</button></div>))}
+            {customs.map(([k, v]) => (<div key={k} style={{ display: "flex", alignItems: "center", borderRadius: 4, overflow: "hidden", border: `1px solid ${v.color}44` }}><div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", background: v.color + "12", borderRadius: 0 }}><div style={{ width: 7, height: 7, borderRadius: 2, background: v.color, flexShrink: 0 }} /><span style={{ fontSize: 11, color: v.color }}>{v.label}</span></div><button onClick={() => onDeleteOwner(k)} title="Remove owner" style={{ padding: "4px 9px", background: v.color + "12", border: "none", borderLeft: `1px solid ${v.color}30`, color: v.color, cursor: "pointer", fontSize: 13, lineHeight: 1 }}>×</button></div>))}
           </div>
         </div>
       )}
@@ -529,6 +529,36 @@ function CustomWorkTypeModal({ onSave, onClose, owners, onAddOwner }) {
   );
 }
 
+// ── ADJUSTMENT NOTES COMPONENT ────────────────────────────────────────────
+
+function AdjustmentNotes({ notes, onAdd, onRemove, inputStyle, btnStyle }) {
+  const [text, setText] = useState("");
+  const handle = () => { if (!text.trim()) return; onAdd(text.trim()); setText(""); };
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 8, marginBottom: notes.length > 0 ? 10 : 0 }}>
+        <input
+          style={{ ...inputStyle, flex: 1 }}
+          placeholder="e.g. Compressed QA from 7d to 5d due to delayed creative handoff"
+          value={text}
+          onChange={e => setText(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && handle()}
+        />
+        <button onClick={handle} style={{ ...btnStyle(false), padding: "8px 14px", fontSize: 10, letterSpacing: 1 }}>+ ADD</button>
+      </div>
+      {notes.map((n, i) => (
+        <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "6px 0", borderTop: "1px solid #111" }}>
+          <span style={{ fontSize: 9, color: "#555", marginTop: 2, flexShrink: 0 }}>{n.date}</span>
+          <span style={{ fontSize: 11, color: "#aaa", flex: 1, lineHeight: 1.5 }}>{n.text}</span>
+          <button onClick={() => onRemove(i)} style={{ background: "none", border: "none", color: "#333", cursor: "pointer", fontSize: 13, lineHeight: 1, flexShrink: 0, padding: "0 2px" }}
+            onMouseEnter={e => e.currentTarget.style.color = "#E31937"}
+            onMouseLeave={e => e.currentTarget.style.color = "#333"}>×</button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── LOCALE LABEL HELPER ────────────────────────────────────────────────────
 
 function getTranslationLabel(tier, customLocales) {
@@ -542,17 +572,18 @@ function getTranslationLabel(tier, customLocales) {
 // ── MAIN COMPONENT ──────────────────────────────────────────────────────────
 
 const INITIAL_STATE = () => ({
-  projectName:     "",
-  projectType:     "npi",
-  direction:       "backward",
-  targetDate:      "2026-06-15",
-  workTypes:       { email: true, pdp: false, plp: false, hp: false },
-  customWorkTypes: [],
-  owners:          DEFAULT_OWNERS,
-  translationTier: "worldwide",
-  customLocales:   WORLDWIDE_CODES,
-  fastFollows:     [],
-  phases:          {},
+  projectName:      "",
+  projectType:      "npi",
+  direction:        "backward",
+  targetDate:       "2026-06-15",
+  workTypes:        { email: true, pdp: false, plp: false, hp: false },
+  customWorkTypes:  [],
+  owners:           DEFAULT_OWNERS,
+  translationTier:  "worldwide",
+  customLocales:    WORLDWIDE_CODES,
+  fastFollows:      [],
+  phases:           {},
+  adjustmentNotes:  [],
 });
 
 export default function WorkbackBuilder() {
@@ -564,7 +595,15 @@ export default function WorkbackBuilder() {
   const ganttRef = useRef(null);
 
   const { projectName, projectType, direction, targetDate, workTypes,
-          customWorkTypes, owners, translationTier, customLocales, fastFollows, phases } = state;
+          customWorkTypes, owners, translationTier, customLocales, fastFollows, phases,
+          adjustmentNotes = [] } = state;
+
+  const addNote = (text) => {
+    const now = new Date();
+    const date = `${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2,"0")}`;
+    set("adjustmentNotes", [...adjustmentNotes, { text, date }]);
+  };
+  const removeNote = (i) => set("adjustmentNotes", adjustmentNotes.filter((_,j) => j !== i));
 
   const set = (key, val) => setState(prev => ({ ...prev, [key]: val }));
   const setPhases = (fn) => setState(prev => ({ ...prev, phases: typeof fn === "function" ? fn(prev.phases) : fn }));
@@ -623,6 +662,9 @@ export default function WorkbackBuilder() {
     if (first) setActiveTab(first.id);
   }, [workTypes, projectType, translationsOn, customWorkTypes]);
 
+  // Auto-sync phases whenever work types or project type changes
+  useEffect(() => { initPhases(); }, [workTypes, projectType, translationsOn]);
+
   const updatePhase = (wt, idx, field, value) => {
     setPhases(prev => { const u = { ...prev }; u[wt] = [...u[wt]]; u[wt][idx] = { ...u[wt][idx], [field]: value }; return u; });
   };
@@ -671,6 +713,7 @@ export default function WorkbackBuilder() {
       lines.push("");
     });
     if (fastFollows.length) { lines.push("=== FAST-FOLLOWS ==="); fastFollows.forEach(ff => lines.push(`  ${ff.date} | ${ff.name}`)); }
+    if (adjustmentNotes.length) { lines.push(""); lines.push("=== ADJUSTMENT NOTES ==="); adjustmentNotes.forEach(n => lines.push(`  [${n.date}] ${n.text}`)); }
     const txtBlob = new Blob([lines.join("\r\n")], { type: "text/plain;charset=utf-8" });
     const a = document.createElement("a"); a.href = URL.createObjectURL(txtBlob);
     a.download = `${(projectName || "schedule").replace(/\s+/g, "-").toLowerCase()}-workback.txt`; a.click();
@@ -682,6 +725,11 @@ export default function WorkbackBuilder() {
     let rows = [["Work Type","Phase","Owner","Start","End","Biz Days","T-minus"]];
     Object.entries(schedule).forEach(([wt, ps]) => { const wtLabel = allWorkTypes.find(w => w.id === wt)?.label || wt; ps.forEach(p => rows.push([wtLabel, p.name, ownerInfo(p.owner).label, fmt(p.start), fmt(p.end), p.duration, `T-${weeksBetween(p.start, target)}`])); });
     if (fastFollows.length) fastFollows.forEach(ff => rows.push(["Fast-Follow", ff.name, "", ff.date, ff.date, "", ""]));
+    if (adjustmentNotes.length > 0) {
+      rows.push([]);
+      rows.push(["-- ADJUSTMENT NOTES --", ""]);
+      adjustmentNotes.forEach(n => rows.push([n.date, n.text]));
+    }
     if (activeLocales.length > 0) {
       rows.push([]);
       rows.push(["-- LOCALES --", ""]);
@@ -742,9 +790,9 @@ export default function WorkbackBuilder() {
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
             {BUILT_IN_WORK_TYPES.map(wt => (<button key={wt.id} onClick={() => toggleWorkType(wt.id)} style={S.pill(workTypes[wt.id], wt.color)}>{wt.label}</button>))}
             {customWorkTypes.map(cwt => (
-              <div key={cwt.id} style={{ display: "flex", alignItems: "center" }}>
-                <button onClick={() => toggleWorkType(cwt.id)} style={{ ...S.pill(workTypes[cwt.id], cwt.color), borderRadius: "3px 0 0 3px", borderRight: "none" }}>{cwt.label}</button>
-                <button onClick={() => deleteCustomWorkType(cwt.id)} style={{ padding: "8px 9px", background: workTypes[cwt.id] ? cwt.color+"22" : "#0e0e0e", border: `1.5px solid ${workTypes[cwt.id] ? cwt.color : "#1e1e1e"}`, borderLeft: "none", color: workTypes[cwt.id] ? cwt.color : "#555", fontSize: 13, lineHeight: 1, fontFamily: "'DM Sans', sans-serif", borderRadius: "0 3px 3px 0", cursor: "pointer" }}>×</button>
+              <div key={cwt.id} style={{ display: "flex", alignItems: "center", borderRadius: 4, overflow: "hidden", border: `1.5px solid ${workTypes[cwt.id] ? cwt.color : "#1e1e1e"}` }}>
+                <button onClick={() => toggleWorkType(cwt.id)} style={{ padding: "8px 14px", background: workTypes[cwt.id] ? cwt.color+"22" : "#0e0e0e", border: "none", borderRight: `1px solid ${workTypes[cwt.id] ? cwt.color+"44" : "#1e1e1e"}`, color: workTypes[cwt.id] ? cwt.color : "#555", fontSize: 11, letterSpacing: 1, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", cursor: "pointer" }}>{cwt.label}</button>
+                <button onClick={() => deleteCustomWorkType(cwt.id)} style={{ padding: "8px 9px", background: workTypes[cwt.id] ? cwt.color+"22" : "#0e0e0e", border: "none", color: workTypes[cwt.id] ? cwt.color : "#555", fontSize: 13, lineHeight: 1, fontFamily: "'DM Sans', sans-serif", cursor: "pointer" }}>×</button>
               </div>
             ))}
             <button onClick={() => setShowCustomModal(true)} style={{ padding: "8px 14px", background: "transparent", border: "1.5px dashed #2a2a2a", color: "#444", fontSize: 11, letterSpacing: 1, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", borderRadius: 3, cursor: "pointer" }}
@@ -836,6 +884,35 @@ export default function WorkbackBuilder() {
           )}
         </div>
       )}
+
+      {/* Adjustment Notes */}
+      <div style={S.card}>
+        <div style={{ marginBottom: 10 }}>
+          <span style={S.lbl}>Adjustment Notes</span>
+          <div style={{ fontSize: 10, color: "#3a3a3a", marginTop: -4, marginBottom: 10 }}>Log changes here for context when sharing. Notes are included in all exports.</div>
+        </div>
+        <AdjustmentNotes notes={adjustmentNotes} onAdd={addNote} onRemove={removeNote} inputStyle={S.input} btnStyle={S.btn} />
+      </div>
+
+      {/* Schedule Reminders */}
+      <div style={S.card}>
+        <span style={S.lbl}>Schedule Reminders</span>
+        <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+          {[
+            "Team QA can start on the US version while Translations/ICR is in progress",
+            "QA can begin at the end of ICR Round 1 to overlap with Round 2 if time is tight",
+            "Build page can start without final copy (placeholders OK)",
+            "If schedule exceeds launch date, compress Build, Team QA, and/or Translations buffer",
+            "Legal review can run in parallel with design wires if bandwidth allows",
+            "Fast-follow assets should be scoped and briefed before launch, not after",
+          ].map((tip, i) => (
+            <li key={i} style={{ display: "flex", gap: 8, padding: "5px 0", borderBottom: "1px solid #0f0f0f", alignItems: "flex-start" }}>
+              <span style={{ color: "#E31937", fontSize: 10, marginTop: 1, flexShrink: 0 }}>•</span>
+              <span style={{ fontSize: 11, color: "#555", lineHeight: 1.5 }}>{tip}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
 
       <button onClick={calculateSchedule} disabled={enabledCount === 0 || Object.keys(phases).length === 0}
         style={{ width: "100%", padding: "18px", background: enabledCount > 0 && Object.keys(phases).length > 0 ? "linear-gradient(135deg, #E31937 0%, #aa0020 100%)" : "#1a0a0a", color: enabledCount > 0 && Object.keys(phases).length > 0 ? "#fff" : "#550010", fontFamily: "'Barlow Condensed', sans-serif", fontSize: 18, letterSpacing: 6, fontWeight: 800, border: "none", borderRadius: 4, cursor: enabledCount > 0 ? "pointer" : "not-allowed", transition: "all 0.2s" }}>
