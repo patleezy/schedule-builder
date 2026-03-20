@@ -48,3 +48,8 @@ Deployments → find last working → "..." → Promote to Production
 | v2.0.0 | 2026-03 | Saved Projects sidebar, Translation tiers (US/Tier1/Worldwide/Custom), title cleanup |
 | v3.0.0 | 2026-03 | Mobile layout, inline save/load bar, corrected locale data |
 | v4.0.0 | 2026-03 | White border fix, mobile breathing room, owner pill, date input |
+
+| v2.0.0 | 2026-03 | Saved Projects sidebar, Translation tiers (US/Tier1/Worldwide/Custom), title cleanup |
+| v3.0.0 | 2026-03 | Mobile layout, inline save/load bar, corrected locale data |
+| v4.0.0 | 2026-03 | White border fix, mobile breathing room, owner pill, date input |
+| v5.0.0 | 2026-03 | TXT fix, CSV locale rows, Gantt font size, date format toggle, owner legend |

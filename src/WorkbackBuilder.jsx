@@ -662,11 +662,17 @@ export default function WorkbackBuilder() {
   const exportTxt = () => {
     if (!schedule) return;
     const target = parseDate(targetDate);
-    let lines = [`SCHEDULE BUILDER`, `Project: ${projectName || "Untitled"}`, `Type: ${projectType.toUpperCase()}`, `${direction === "backward" ? "Launch" : "Kick-off"}: ${fmtDisplay(target)}`, `Translations: ${localeLabel}`, ``];
+    let lines = ["SCHEDULE BUILDER", `Project: ${projectName || "Untitled"}`, `Type: ${projectType.toUpperCase()}`, `${direction === "backward" ? "Launch" : "Kick-off"}: ${fmtDisplay(target)}`, `Translations: ${localeLabel}`, ""];
     if (activeLocales.length > 0) { lines.push(`Locales: ${activeLocales.join(", ")}`); lines.push(""); }
-    Object.entries(schedule).forEach(([wt, ps]) => { lines.push(`━━━ ${allWorkTypes.find(w => w.id === wt)?.label?.toUpperCase() || wt} ━━━`); ps.forEach(p => lines.push(`  ${fmtDisplay(p.start)} → ${fmtDisplay(p.end)} | ${p.name} | ${ownerInfo(p.owner).label} | T-${weeksBetween(p.start, target)}w`)); lines.push(""); });
-    if (fastFollows.length) { lines.push("━━━ FAST-FOLLOWS ━━━"); fastFollows.forEach(ff => lines.push(`  ${ff.date} | ${ff.name}`)); }
-    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/plain" }));
+    Object.entries(schedule).forEach(([wt, ps]) => {
+      const wtLabel = allWorkTypes.find(w => w.id === wt)?.label?.toUpperCase() || wt;
+      lines.push(`=== ${wtLabel} ===`);
+      ps.forEach(p => lines.push(`  ${fmtDisplay(p.start)} - ${fmtDisplay(p.end)} | ${p.name} | ${ownerInfo(p.owner).label} | T-${weeksBetween(p.start, target)}w`));
+      lines.push("");
+    });
+    if (fastFollows.length) { lines.push("=== FAST-FOLLOWS ==="); fastFollows.forEach(ff => lines.push(`  ${ff.date} | ${ff.name}`)); }
+    const txtBlob = new Blob([lines.join("\r\n")], { type: "text/plain;charset=utf-8" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(txtBlob);
     a.download = `${(projectName || "schedule").replace(/\s+/g, "-").toLowerCase()}-workback.txt`; a.click();
   };
 
@@ -676,7 +682,14 @@ export default function WorkbackBuilder() {
     let rows = [["Work Type","Phase","Owner","Start","End","Biz Days","T-minus"]];
     Object.entries(schedule).forEach(([wt, ps]) => { const wtLabel = allWorkTypes.find(w => w.id === wt)?.label || wt; ps.forEach(p => rows.push([wtLabel, p.name, ownerInfo(p.owner).label, fmt(p.start), fmt(p.end), p.duration, `T-${weeksBetween(p.start, target)}`])); });
     if (fastFollows.length) fastFollows.forEach(ff => rows.push(["Fast-Follow", ff.name, "", ff.date, ff.date, "", ""]));
-    if (activeLocales.length > 0) { rows.push([]); rows.push(["Locales", ...activeLocales]); }
+    if (activeLocales.length > 0) {
+      rows.push([]);
+      rows.push(["-- LOCALES --", ""]);
+      activeLocales.forEach(code => {
+        const loc = ALL_LOCALES.find(l => l.code === code);
+        rows.push([code, loc ? loc.label : code]);
+      });
+    }
     const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([rows.map(r => r.map(c => `"${c}"`).join(",")).join("\n")], { type: "text/csv" }));
     a.download = `${(projectName || "schedule").replace(/\s+/g, "-").toLowerCase()}-workback.csv`; a.click();
   };
@@ -832,58 +845,128 @@ export default function WorkbackBuilder() {
   );
 
   // ── SCHEDULE VIEW ──────────────────────────────────────────────────────────
+  const [ganttFontSize, setGanttFontSize] = useState(1); // 0=small, 1=medium, 2=large
+  const [numericDates, setNumericDates] = useState(false);
+
+  const fmtDate = (d) => numericDates ? `${d.getMonth()+1}/${d.getDate()}` : fmtDisplay(d);
+  const FONT_SCALES = [0.8, 1, 1.2];
+
   const renderSchedule = () => {
     if (!schedule) return null;
     const target = parseDate(targetDate);
     const { min, max } = getDateRange();
+    const fs = FONT_SCALES[ganttFontSize];
+    const labelW = Math.round(180 * fs);
+    const minGanttW = Math.max(600, Math.round(800 * fs));
     const getPos = (d) => Math.max(0, Math.min(100, ((d - min) / (max - min)) * 100));
     const weekMarkers = [];
     let wk = new Date(min); wk.setDate(wk.getDate() - wk.getDay() + 1);
     while (wk <= max) { const tW = weeksBetween(wk, target); weekMarkers.push({ date: new Date(wk), tMinus: direction === "backward" ? `T-${tW}` : `T+${tW}`, pos: getPos(wk) }); wk.setDate(wk.getDate() + 7); }
+
+    // Build owner legend from phases in schedule
+    const usedOwnerIds = [...new Set(Object.values(schedule).flat().map(p => p.owner))];
+
     return (
       <div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+        {/* Top bar */}
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16, gap: 12, flexWrap: "wrap" }}>
           <div>
-            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, letterSpacing: 5, fontWeight: 700 }}>{projectName || "UNTITLED PROJECT"}</div>
-            <div style={{ fontSize: 11, color: "#555", marginTop: 2 }}>{projectType.toUpperCase()} · {direction === "backward" ? "Launch" : "Kick-off"}: {fmtDisplay(target)} · {localeLabel}</div>
+            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: Math.round(22*fs), letterSpacing: 5, fontWeight: 700 }}>{projectName || "UNTITLED PROJECT"}</div>
+            <div style={{ fontSize: Math.round(11*fs), color: "#666", marginTop: 2 }}>{projectType.toUpperCase()} · {direction === "backward" ? "Launch" : "Kick-off"}: {fmtDate(target)} · {localeLabel}</div>
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
             <button onClick={() => setView("setup")} style={S.btn(false)}>← EDIT</button>
             <button onClick={exportTxt} style={S.btn(false)}>TXT</button>
             <button onClick={exportCsv} style={S.btn(false)}>CSV</button>
             <button onClick={exportPdf} style={S.btn(true)}>PDF ↗</button>
           </div>
         </div>
+
+        {/* Toolbar: font size + date format */}
+        <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 14, padding: "8px 12px", background: "#0a0a0a", border: "1px solid #151515", borderRadius: 5, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 9, letterSpacing: 2, color: "#444", fontWeight: 600 }}>SIZE</span>
+            {["S","M","L"].map((lbl, i) => (
+              <button key={lbl} onClick={() => setGanttFontSize(i)} style={{
+                width: 26, height: 26, borderRadius: 3, cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+                background: ganttFontSize === i ? "#E31937" : "#0e0e0e",
+                border: `1.5px solid ${ganttFontSize === i ? "#E31937" : "#1e1e1e"}`,
+                color: ganttFontSize === i ? "#fff" : "#555",
+                fontSize: 9 + i, fontWeight: 700, lineHeight: 1,
+              }}>{lbl}</button>
+            ))}
+          </div>
+          <div style={{ width: 1, height: 20, background: "#1e1e1e" }} />
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 9, letterSpacing: 2, color: "#444", fontWeight: 600 }}>DATES</span>
+            {[["Mar 2", false], ["3/2", true]].map(([lbl, val]) => (
+              <button key={lbl} onClick={() => setNumericDates(val)} style={{
+                padding: "4px 10px", borderRadius: 3, cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+                background: numericDates === val ? "#E31937" : "#0e0e0e",
+                border: `1.5px solid ${numericDates === val ? "#E31937" : "#1e1e1e"}`,
+                color: numericDates === val ? "#fff" : "#555",
+                fontSize: 10, fontWeight: 600, letterSpacing: 0.5,
+              }}>{lbl}</button>
+            ))}
+          </div>
+        </div>
+
         {/* Locale flags row */}
         {activeLocales.length > 0 && (
-          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 20, padding: "8px 12px", background: "#0a0a0a", border: "1px solid #151515", borderRadius: 4 }}>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 12, padding: "6px 12px", background: "#0a0a0a", border: "1px solid #151515", borderRadius: 4 }}>
             {activeLocales.map(code => {
               const loc = ALL_LOCALES.find(l => l.code === code);
-              return loc ? <span key={code} title={loc.label} style={{ fontSize: 18, lineHeight: 1 }}>{loc.flag}</span> : null;
+              return loc ? <span key={code} title={loc.label} style={{ fontSize: Math.round(16*fs), lineHeight: 1 }}>{loc.flag}</span> : null;
             })}
           </div>
         )}
-        <div ref={ganttRef} style={{ background: "#0a0a0a", border: "1px solid #151515", borderRadius: 6, padding: "20px", overflow: "auto" }}>
-          <div style={{ position: "relative", height: 24, marginLeft: 220, marginBottom: 4 }}>{weekMarkers.filter(w => w.pos > 0 && w.pos < 100).map((w, i) => (<div key={i} style={{ position: "absolute", left: `${w.pos}%`, transform: "translateX(-50%)", fontSize: 8, letterSpacing: 1, color: "#444", whiteSpace: "nowrap" }}>{w.tMinus}</div>))}</div>
-          <div style={{ position: "relative", height: 20, marginLeft: 220, marginBottom: 8, borderBottom: "1px solid #151515" }}>{weekMarkers.filter((w,i) => i%2===0 && w.pos>0 && w.pos<100).map((w, i) => (<div key={i} style={{ position: "absolute", left: `${w.pos}%`, transform: "translateX(-50%)", fontSize: 9, color: "#333", whiteSpace: "nowrap" }}>{fmtDisplay(w.date).split(" ").slice(1).join(" ")}</div>))}</div>
+
+        {/* Owner legend */}
+        {usedOwnerIds.length > 0 && (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14, padding: "8px 12px", background: "#0a0a0a", border: "1px solid #151515", borderRadius: 5 }}>
+            <span style={{ fontSize: 8, letterSpacing: 2, color: "#333", fontWeight: 700, alignSelf: "center", marginRight: 4 }}>OWNERS</span>
+            {usedOwnerIds.map(id => {
+              const ow = ownerInfo(id);
+              return (
+                <div key={id} style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 9px", borderRadius: 3, background: ow.color + "14", border: `1px solid ${ow.color}30` }}>
+                  <div style={{ width: 7, height: 7, borderRadius: 2, background: ow.color, flexShrink: 0 }} />
+                  <span style={{ fontSize: Math.round(10*fs), color: ow.color, whiteSpace: "nowrap" }}>{ow.label}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Gantt — horizontally scrollable with min-width */}
+        <div ref={ganttRef} style={{ background: "#0a0a0a", border: "1px solid #151515", borderRadius: 6, padding: "16px", overflow: "auto" }}>
+          <div style={{ minWidth: minGanttW }}>
+          <div style={{ position: "relative", height: 24, marginLeft: labelW, marginBottom: 4 }}>{weekMarkers.filter(w => w.pos > 0 && w.pos < 100).map((w, i) => (<div key={i} style={{ position: "absolute", left: `${w.pos}%`, transform: "translateX(-50%)", fontSize: Math.round(9*fs), letterSpacing: 1, color: "#aaa", fontWeight: 700, whiteSpace: "nowrap" }}>{w.tMinus}</div>))}</div>
+          <div style={{ position: "relative", height: 20, marginLeft: labelW, marginBottom: 8, borderBottom: "1px solid #1e1e1e" }}>{weekMarkers.filter((w,i) => i%2===0 && w.pos>0 && w.pos<100).map((w, i) => (<div key={i} style={{ position: "absolute", left: `${w.pos}%`, transform: "translateX(-50%)", fontSize: Math.round(9*fs), color: "#666", whiteSpace: "nowrap" }}>{numericDates ? `${w.date.getMonth()+1}/${w.date.getDate()}` : fmtDisplay(w.date).split(" ").slice(1).join(" ")}</div>))}</div>
           {Object.entries(schedule).map(([wt, phaseList]) => {
             const wtInfo = allWorkTypes.find(w => w.id === wt) || { color: "#888", light: "rgba(136,136,136,0.15)", label: wt };
+            const rowH = Math.round(28 * fs);
             return (
-              <div key={wt} style={{ marginBottom: 20 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}><div style={{ width: 10, height: 10, borderRadius: 2, background: wtInfo.color }} /><span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 14, letterSpacing: 3, fontWeight: 700, color: wtInfo.color }}>{wtInfo.label}</span>{wtInfo.custom && <span style={{ fontSize: 7, letterSpacing: 2, color: wtInfo.color, opacity: 0.6, fontWeight: 700 }}>CUSTOM</span>}</div>
+              <div key={wt} style={{ marginBottom: Math.round(20*fs) }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                  <div style={{ width: Math.round(10*fs), height: Math.round(10*fs), borderRadius: 2, background: wtInfo.color }} />
+                  <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: Math.round(14*fs), letterSpacing: 3, fontWeight: 700, color: wtInfo.color }}>{wtInfo.label}</span>
+                  {wtInfo.custom && <span style={{ fontSize: 7, letterSpacing: 2, color: wtInfo.color, opacity: 0.6, fontWeight: 700 }}>CUSTOM</span>}
+                </div>
                 {phaseList.map((p, idx) => {
                   const left = getPos(p.start), right = getPos(p.end), width = Math.max(0.5, right - left);
                   const ow = ownerInfo(p.owner);
+                  const barLabel = numericDates
+                    ? `${p.start.getMonth()+1}/${p.start.getDate()} – ${p.end.getMonth()+1}/${p.end.getDate()}`
+                    : `${fmtDisplay(p.start).slice(4)} – ${fmtDisplay(p.end).slice(4)}`;
                   return (
-                    <div key={p.id||idx} style={{ display: "flex", alignItems: "center", marginBottom: 3, height: 28 }}>
-                      <div style={{ width: 220, flexShrink: 0, display: "flex", alignItems: "center", gap: 6, paddingRight: 12 }}>
-                        <span style={{ fontSize: 10.5, color: "#999", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{p.name}</span>
-                        <span style={{ fontSize: 7, letterSpacing: 1, padding: "2px 5px", borderRadius: 2, background: ow.color+"18", color: ow.color, flexShrink: 0, maxWidth: 72, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ow.label.split(" ").slice(-1)[0]}</span>
+                    <div key={p.id||idx} style={{ display: "flex", alignItems: "center", marginBottom: 3, height: rowH }}>
+                      <div style={{ width: labelW, flexShrink: 0, display: "flex", alignItems: "center", gap: 6, paddingRight: 10 }}>
+                        <span style={{ fontSize: Math.round(10*fs), color: "#bbb", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{p.name}</span>
                       </div>
                       <div style={{ flex: 1, position: "relative", height: "100%" }}>
                         {weekMarkers.filter(w => w.pos>0 && w.pos<100).map((w, i) => (<div key={i} style={{ position: "absolute", left: `${w.pos}%`, top: 0, bottom: 0, width: 1, background: "#111" }} />))}
-                        <div style={{ position: "absolute", left: `${left}%`, width: `${width}%`, top: 4, height: 20, borderRadius: p.milestone ? 10 : 3, background: p.milestone ? wtInfo.color : `linear-gradient(90deg, ${wtInfo.color}cc, ${wtInfo.color}88)`, minWidth: p.milestone ? 10 : 4, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          {width > 3 && <span style={{ fontSize: 8, color: "#fff", fontWeight: 600, letterSpacing: 0.5, whiteSpace: "nowrap", overflow: "hidden", padding: "0 4px" }}>{fmtDisplay(p.start).slice(4)} – {fmtDisplay(p.end).slice(4)}</span>}
+                        <div style={{ position: "absolute", left: `${left}%`, width: `${width}%`, top: Math.round(4*fs), height: Math.round(20*fs), borderRadius: p.milestone ? 10 : 3, background: p.milestone ? wtInfo.color : `linear-gradient(90deg, ${wtInfo.color}cc, ${wtInfo.color}88)`, minWidth: p.milestone ? 10 : 4, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          {width > 3 && <span style={{ fontSize: Math.round(8*fs), color: "#fff", fontWeight: 600, letterSpacing: 0.5, whiteSpace: "nowrap", overflow: "hidden", padding: "0 4px" }}>{barLabel}</span>}
                         </div>
                       </div>
                     </div>
@@ -892,15 +975,16 @@ export default function WorkbackBuilder() {
               </div>
             );
           })}
-          <div style={{ position: "relative", marginLeft: 220, height: 0 }}>
+          <div style={{ position: "relative", marginLeft: labelW, height: 0 }}>
             <div style={{ position: "absolute", left: `${getPos(target)}%`, top: -1000, bottom: -20, width: 2, background: "#E31937", opacity: 0.6, zIndex: 5 }} />
-            <div style={{ position: "absolute", left: `${getPos(target)}%`, transform: "translateX(-50%)", top: 4, fontSize: 8, letterSpacing: 2, color: "#E31937", fontWeight: 700, whiteSpace: "nowrap", zIndex: 6 }}>▼ {direction === "backward" ? "LAUNCH" : "KICK-OFF"}</div>
+            <div style={{ position: "absolute", left: `${getPos(target)}%`, transform: "translateX(-50%)", top: 4, fontSize: Math.round(8*fs), letterSpacing: 2, color: "#E31937", fontWeight: 700, whiteSpace: "nowrap", zIndex: 6 }}>▼ {direction === "backward" ? "LAUNCH" : "KICK-OFF"}</div>
           </div>
           {fastFollows.length > 0 && (
-            <div style={{ marginTop: 24, marginLeft: 220, position: "relative", height: 30 }}>
-              {fastFollows.map((ff, i) => { const pos = getPos(parseDate(ff.date)); return (<div key={i} style={{ position: "absolute", left: `${pos}%`, transform: "translateX(-50%)", textAlign: "center" }}><div style={{ width: 2, height: 16, background: "#E31937", margin: "0 auto", opacity: 0.4 }} /><div style={{ fontSize: 8, color: "#E31937", letterSpacing: 1, whiteSpace: "nowrap", marginTop: 2 }}>{ff.name || "Fast-follow"}</div></div>); })}
+            <div style={{ marginTop: 24, marginLeft: labelW, position: "relative", height: 30 }}>
+              {fastFollows.map((ff, i) => { const pos = getPos(parseDate(ff.date)); return (<div key={i} style={{ position: "absolute", left: `${pos}%`, transform: "translateX(-50%)", textAlign: "center" }}><div style={{ width: 2, height: 16, background: "#E31937", margin: "0 auto", opacity: 0.4 }} /><div style={{ fontSize: Math.round(8*fs), color: "#E31937", letterSpacing: 1, whiteSpace: "nowrap", marginTop: 2 }}>{ff.name || "Fast-follow"}</div></div>); })}
             </div>
           )}
+          </div>{/* end minWidth wrapper */}
         </div>
         <div style={{ marginTop: 24 }}>
           {Object.entries(schedule).map(([wt, phaseList]) => {
@@ -917,7 +1001,7 @@ export default function WorkbackBuilder() {
                   return (
                     <div key={p.id||pi} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid #111" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ fontSize: 11.5, color: "#bbb" }}>{p.name}</span><span style={{ fontSize: 8, letterSpacing: 1, padding: "2px 6px", borderRadius: 2, background: ow.color+"15", color: ow.color }}>{ow.label}</span></div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 16 }}><span style={{ fontSize: 11, color: "#666" }}>{fmtDisplay(p.start)} → {fmtDisplay(p.end)}</span><span style={{ fontSize: 10, color: "#444", minWidth: 36, textAlign: "right" }}>{p.duration}d</span><span style={{ fontSize: 10, color: "#E31937", fontWeight: 600, minWidth: 44, textAlign: "right" }}>{p.start <= target ? `T-${tW}w` : `T+${tW}w`}</span></div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 16 }}><span style={{ fontSize: 11, color: "#666" }}>{fmtDate(p.start)} → {fmtDate(p.end)</span><span style={{ fontSize: 10, color: "#444", minWidth: 36, textAlign: "right" }}>{p.duration}d</span><span style={{ fontSize: 10, color: "#E31937", fontWeight: 600, minWidth: 44, textAlign: "right" }}>{p.start <= target ? `T-${tW}w` : `T+${tW}w`}</span></div>
                     </div>
                   );
                 })}
