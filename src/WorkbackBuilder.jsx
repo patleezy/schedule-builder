@@ -885,35 +885,6 @@ export default function WorkbackBuilder() {
         </div>
       )}
 
-      {/* Adjustment Notes */}
-      <div style={S.card}>
-        <div style={{ marginBottom: 10 }}>
-          <span style={S.lbl}>Adjustment Notes</span>
-          <div style={{ fontSize: 10, color: "#3a3a3a", marginTop: -4, marginBottom: 10 }}>Log changes here for context when sharing. Notes are included in all exports.</div>
-        </div>
-        <AdjustmentNotes notes={adjustmentNotes} onAdd={addNote} onRemove={removeNote} inputStyle={S.input} btnStyle={S.btn} />
-      </div>
-
-      {/* Schedule Reminders */}
-      <div style={S.card}>
-        <span style={S.lbl}>Schedule Reminders</span>
-        <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-          {[
-            "Team QA can start on the US version while Translations/ICR is in progress",
-            "QA can begin at the end of ICR Round 1 to overlap with Round 2 if time is tight",
-            "Build page can start without final copy (placeholders OK)",
-            "If schedule exceeds launch date, compress Build, Team QA, and/or Translations buffer",
-            "Legal review can run in parallel with design wires if bandwidth allows",
-            "Fast-follow assets should be scoped and briefed before launch, not after",
-          ].map((tip, i) => (
-            <li key={i} style={{ display: "flex", gap: 8, padding: "5px 0", borderBottom: "1px solid #0f0f0f", alignItems: "flex-start" }}>
-              <span style={{ color: "#E31937", fontSize: 10, marginTop: 1, flexShrink: 0 }}>•</span>
-              <span style={{ fontSize: 11, color: "#555", lineHeight: 1.5 }}>{tip}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-
       <button onClick={calculateSchedule} disabled={enabledCount === 0 || Object.keys(phases).length === 0}
         style={{ width: "100%", padding: "18px", background: enabledCount > 0 && Object.keys(phases).length > 0 ? "linear-gradient(135deg, #E31937 0%, #aa0020 100%)" : "#1a0a0a", color: enabledCount > 0 && Object.keys(phases).length > 0 ? "#fff" : "#550010", fontFamily: "'Barlow Condensed', sans-serif", fontSize: 18, letterSpacing: 6, fontWeight: 800, border: "none", borderRadius: 4, cursor: enabledCount > 0 ? "pointer" : "not-allowed", transition: "all 0.2s" }}>
         GENERATE SCHEDULE →
@@ -933,8 +904,8 @@ export default function WorkbackBuilder() {
     const target = parseDate(targetDate);
     const { min, max } = getDateRange();
     const fs = FONT_SCALES[ganttFontSize];
-    const labelW = Math.round(180 * fs);
-    const minGanttW = Math.max(600, Math.round(800 * fs));
+    const labelW = Math.round(280 * fs);
+    const minGanttW = Math.max(700, Math.round(900 * fs));
     const getPos = (d) => Math.max(0, Math.min(100, ((d - min) / (max - min)) * 100));
     const weekMarkers = [];
     let wk = new Date(min); wk.setDate(wk.getDate() - wk.getDay() + 1);
@@ -1032,19 +1003,22 @@ export default function WorkbackBuilder() {
                 {phaseList.map((p, idx) => {
                   const left = getPos(p.start), right = getPos(p.end), width = Math.max(0.5, right - left);
                   const ow = ownerInfo(p.owner);
-                  const barLabel = numericDates
-                    ? `${p.start.getMonth()+1}/${p.start.getDate()} – ${p.end.getMonth()+1}/${p.end.getDate()}`
+                  const dateLabel = numericDates
+                    ? `${p.start.getMonth()+1}/${p.start.getDate()}–${p.end.getMonth()+1}/${p.end.getDate()}`
                     : `${fmtDisplay(p.start).slice(4)} – ${fmtDisplay(p.end).slice(4)}`;
                   return (
                     <div key={p.id||idx} style={{ display: "flex", alignItems: "center", marginBottom: 3, height: rowH }}>
-                      <div style={{ width: labelW, flexShrink: 0, display: "flex", alignItems: "center", gap: 6, paddingRight: 10 }}>
-                        <span style={{ fontSize: Math.round(10*fs), color: "#bbb", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{p.name}</span>
+                      {/* Label column: color flag + phase name + dates */}
+                      <div style={{ width: labelW, flexShrink: 0, display: "flex", alignItems: "center", gap: 0, paddingRight: 10 }}>
+                        <div style={{ width: 3, alignSelf: "stretch", background: ow.color, borderRadius: 2, marginRight: 8, flexShrink: 0, opacity: 0.85 }} />
+                        <span style={{ fontSize: Math.round(10*fs), color: "#ccc", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>{p.name}</span>
+                        <span style={{ fontSize: Math.round(9*fs), color: "#555", whiteSpace: "nowrap", marginLeft: 6, flexShrink: 0 }}>{dateLabel}</span>
+                        <span style={{ fontSize: Math.round(8*fs), color: "#3a3a3a", whiteSpace: "nowrap", marginLeft: 4, flexShrink: 0 }}>{p.duration}d</span>
                       </div>
+                      {/* Bar column — no text on bars */}
                       <div style={{ flex: 1, position: "relative", height: "100%" }}>
                         {weekMarkers.filter(w => w.pos>0 && w.pos<100).map((w, i) => (<div key={i} style={{ position: "absolute", left: `${w.pos}%`, top: 0, bottom: 0, width: 1, background: "#111" }} />))}
-                        <div style={{ position: "absolute", left: `${left}%`, width: `${width}%`, top: Math.round(4*fs), height: Math.round(20*fs), borderRadius: p.milestone ? 10 : 3, background: p.milestone ? wtInfo.color : `linear-gradient(90deg, ${wtInfo.color}cc, ${wtInfo.color}88)`, minWidth: p.milestone ? 10 : 4, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          {width > 3 && <span style={{ fontSize: Math.round(8*fs), color: "#fff", fontWeight: 600, letterSpacing: 0.5, whiteSpace: "nowrap", overflow: "hidden", padding: "0 4px" }}>{barLabel}</span>}
-                        </div>
+                        <div style={{ position: "absolute", left: `${left}%`, width: `${width}%`, top: Math.round(4*fs), height: Math.round(20*fs), borderRadius: p.milestone ? 10 : 3, background: p.milestone ? ow.color : `linear-gradient(90deg, ${ow.color}cc, ${ow.color}66)`, minWidth: p.milestone ? 10 : 4 }} />
                       </div>
                     </div>
                   );
@@ -1087,6 +1061,38 @@ export default function WorkbackBuilder() {
           })}
         </div>
       </div>
+
+      {/* Schedule Reminders — only for built-in work types */}
+      {Object.keys(schedule).some(wt => ["email","pdp","plp","hp"].includes(wt)) && (
+        <div style={{ ...S.card, marginTop: 8 }}>
+          <span style={{ ...S.lbl, marginBottom: 10, display: "block" }}>Schedule Reminders</span>
+          <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+            {[
+              "Team QA can start on the US version while Translations/ICR is in progress",
+              "QA can begin at the end of ICR Round 1 to overlap with Round 2 if time is tight",
+              "Build page can start without final copy (placeholders OK)",
+              "If schedule exceeds launch date, compress Build, Team QA, and/or Translations buffer",
+              "Legal review can run in parallel with design wires if bandwidth allows",
+              "Fast-follow assets should be scoped and briefed before launch, not after",
+            ].map((tip, i) => (
+              <li key={i} style={{ display: "flex", gap: 8, padding: "5px 0", borderBottom: "1px solid #0f0f0f", alignItems: "flex-start" }}>
+                <span style={{ color: "#E31937", fontSize: 10, marginTop: 2, flexShrink: 0 }}>•</span>
+                <span style={{ fontSize: 11, color: "#555", lineHeight: 1.5 }}>{tip}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Adjustment Notes */}
+      <div style={{ ...S.card, marginTop: 8 }}>
+        <div style={{ marginBottom: 8 }}>
+          <span style={{ ...S.lbl, marginBottom: 4, display: "block" }}>Adjustment Notes</span>
+          <div style={{ fontSize: 10, color: "#3a3a3a", marginBottom: 10 }}>Log changes here for context when sharing. Included in all exports.</div>
+        </div>
+        <AdjustmentNotes notes={adjustmentNotes} onAdd={addNote} onRemove={removeNote} inputStyle={S.input} btnStyle={S.btn} />
+      </div>
+
     );
   };
 
