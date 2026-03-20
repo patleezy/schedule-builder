@@ -93,7 +93,7 @@ const DEFAULT_OWNERS = {
   loc:      { label: "Localization",     color: "#A855F7", builtin: true },
 };
 
-const NPI_PHASES = (wt) => [
+const PRODUCT_PHASES = (wt) => [
   { id: "wires",        name: "Finalize design wires/copy", owner: "creative", dur: { email: 20, pdp: 50, plp: 15, hp: 15 }[wt] ?? 10 },
   { id: "legal",        name: "Legal",                      owner: "legal",    dur: { email: 5,  pdp: 10, plp: 5,  hp: 5  }[wt] ?? 5,  toggleable: true, defaultOn: true },
   { id: "assets",       name: "Cut & deliver assets",       owner: "creative", dur: { email: 1,  pdp: 5,  plp: 1,  hp: 1  }[wt] ?? 2 },
@@ -107,7 +107,7 @@ const NPI_PHASES = (wt) => [
   { id: "push",         name: "Push to production",         owner: "ops",      dur: 1, milestone: true },
 ];
 
-const NON_NPI_PHASES = (wt) => [
+const NON_PRODUCT_PHASES = (wt) => [
   { id: "wires",        name: "Finalize design wires/copy", owner: "creative", dur: { email: 10, pdp: 25, plp: 8, hp: 8 }[wt] ?? 8 },
   { id: "legal",        name: "Legal (if needed)",          owner: "legal",    dur: { email: 3,  pdp: 5,  plp: 3, hp: 3 }[wt] ?? 3, toggleable: true, defaultOn: false },
   { id: "assets",       name: "Cut & deliver assets",       owner: "creative", dur: { email: 1,  pdp: 3,  plp: 1, hp: 1 }[wt] ?? 1 },
@@ -642,7 +642,7 @@ function getTranslationLabel(tier, customLocales) {
 
 const INITIAL_STATE = () => ({
   projectName:      "",
-  projectType:      "npi",
+  projectType:      "product",
   direction:        "backward",
   targetDate:       "2026-06-15",
   workTypes:        { email: true, pdp: false, plp: false, hp: false },
@@ -699,7 +699,13 @@ export default function WorkbackBuilder() {
   }, [owners]);
 
   const ownerInfo = (id) => owners[id] || { label: id, color: "#888" };
-  const toggleWorkType = (id) => set("workTypes", { ...workTypes, [id]: !workTypes[id] });
+  // Radio behavior — only one work type active at a time
+  const selectWorkType = (id) => {
+    const newWt = {};
+    [...BUILT_IN_WORK_TYPES, ...customWorkTypes].forEach(wt => { newWt[wt.id] = false; });
+    newWt[id] = true;
+    set("workTypes", newWt);
+  };
 
   const deleteCustomWorkType = (id) => {
     set("customWorkTypes", customWorkTypes.filter(c => c.id !== id));
@@ -724,7 +730,7 @@ export default function WorkbackBuilder() {
     allWorkTypes.forEach(({ id, custom }) => {
       if (!workTypes[id]) return;
       if (custom) { const cwt = customWorkTypes.find(c => c.id === id); if (cwt) np[id] = cwt.phases.map(p => ({ ...p })); }
-      else { const tpl = projectType === "npi" ? NPI_PHASES(id) : NON_NPI_PHASES(id); np[id] = tpl.map(p => ({ ...p, enabled: p.translationPhase ? translationsOn && (p.defaultOn !== false) : (p.defaultOn !== false), duration: typeof p.dur === "number" ? p.dur : (p.dur ?? 3) })); }
+      else { const tpl = projectType === "product" ? PRODUCT_PHASES(id) : NON_PRODUCT_PHASES(id); np[id] = tpl.map(p => ({ ...p, enabled: p.translationPhase ? translationsOn && (p.defaultOn !== false) : (p.defaultOn !== false), duration: typeof p.dur === "number" ? p.dur : (p.dur ?? 3) })); }
     });
     setPhases(np);
     const first = allWorkTypes.find(wt => workTypes[wt.id]);
@@ -849,7 +855,7 @@ export default function WorkbackBuilder() {
 
       <div style={S.card}>
         <div style={S.sec}><span style={S.lbl}>Project Name</span><input style={S.input} placeholder="e.g. Global Launch for XYZ" value={projectName} onChange={e => set("projectName", e.target.value)} /></div>
-        <div style={S.sec}><span style={S.lbl}>Project Type</span><div style={{ display: "flex", gap: 8 }}>{[["npi","NPI"],["non-npi","Non-NPI (Misc)"]].map(([id,lbl]) => (<button key={id} onClick={() => set("projectType", id)} style={S.btn(projectType === id)}>{lbl}</button>))}</div></div>
+        <div style={S.sec}><span style={S.lbl}>Project Type</span><div style={{ display: "flex", gap: 8 }}>{[["product","Product"],["non-product","Non-Product"]].map(([id,lbl]) => (<button key={id} onClick={() => set("projectType", id)} style={S.btn(projectType === id)}>{lbl}</button>))}</div></div>
         <div style={S.sec}><span style={S.lbl}>Schedule Direction</span><div style={{ display: "flex", gap: 8 }}>{[["backward","← Backward from Launch"],["forward","Forward from Kick-off →"]].map(([id,lbl]) => (<button key={id} onClick={() => set("direction", id)} style={S.btn(direction === id)}>{lbl}</button>))}</div></div>
         <div style={S.sec}><span style={S.lbl}>{direction === "backward" ? "Launch Date" : "Kick-off Date"}</span><input type="date" style={{ ...S.input, maxWidth: "100%", minWidth: 0 }} value={targetDate} onChange={e => set("targetDate", e.target.value)} /></div>
 
@@ -857,10 +863,10 @@ export default function WorkbackBuilder() {
         <div style={S.sec}>
           <span style={S.lbl}>Work Types</span>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            {BUILT_IN_WORK_TYPES.map(wt => (<button key={wt.id} onClick={() => toggleWorkType(wt.id)} style={S.pill(workTypes[wt.id], wt.color)}>{wt.label}</button>))}
+            {BUILT_IN_WORK_TYPES.map(wt => (<button key={wt.id} onClick={() => selectWorkType(wt.id)} style={S.pill(workTypes[wt.id], wt.color)}>{wt.label}</button>))}
             {customWorkTypes.map(cwt => (
               <div key={cwt.id} style={{ display: "flex", alignItems: "center", borderRadius: 4, overflow: "hidden", border: `1.5px solid ${workTypes[cwt.id] ? cwt.color : "#1e1e1e"}` }}>
-                <button onClick={() => toggleWorkType(cwt.id)} style={{ padding: "8px 14px", background: workTypes[cwt.id] ? cwt.color+"22" : "#0e0e0e", border: "none", borderRight: `1px solid ${workTypes[cwt.id] ? cwt.color+"44" : "#1e1e1e"}`, color: workTypes[cwt.id] ? cwt.color : "#555", fontSize: 11, letterSpacing: 1, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", cursor: "pointer" }}>{cwt.label}</button>
+                <button onClick={() => selectWorkType(cwt.id)} style={{ padding: "8px 14px", background: workTypes[cwt.id] ? cwt.color+"22" : "#0e0e0e", border: "none", borderRight: `1px solid ${workTypes[cwt.id] ? cwt.color+"44" : "#1e1e1e"}`, color: workTypes[cwt.id] ? cwt.color : "#555", fontSize: 11, letterSpacing: 1, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", cursor: "pointer" }}>{cwt.label}</button>
                 <button onClick={() => deleteCustomWorkType(cwt.id)} style={{ padding: "8px 9px", background: workTypes[cwt.id] ? cwt.color+"22" : "#0e0e0e", border: "none", color: workTypes[cwt.id] ? cwt.color : "#555", fontSize: 13, lineHeight: 1, fontFamily: "'DM Sans', sans-serif", cursor: "pointer" }}>×</button>
               </div>
             ))}
@@ -1126,7 +1132,6 @@ export default function WorkbackBuilder() {
                         <div style={{ width: 3, alignSelf: "stretch", background: ow.color, borderRadius: 2, flexShrink: 0, opacity: 0.85 }} />
                         <div style={{ minWidth: 0 }}>
                           <span style={{ fontSize: 11.5, color: "#ccc" }}>{p.name}</span>
-                          <span style={{ fontSize: 8, letterSpacing: 1, padding: "2px 6px", borderRadius: 2, background: ow.color+"15", color: ow.color, marginLeft: 8 }}>{ow.label}</span>
                         </div>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>

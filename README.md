@@ -86,3 +86,12 @@ Deployments → find last working → "..." → Promote to Production
 | v6.0.0 | 2026-03 | Pill borders, auto phase-init, adjustment notes, schedule reminders |
 | v7.0.0 | 2026-03 | Adj notes + reminders on schedule view, owner-colored bars, dates in label |
 | v8.0.0 | 2026-03 | Correct 2026 holidays, Gantt/List labels, locale info bar, color-coded list |
+
+| v2.0.0 | 2026-03 | Saved Projects sidebar, Translation tiers (US/Tier1/Worldwide/Custom), title cleanup |
+| v3.0.0 | 2026-03 | Mobile layout, inline save/load bar, corrected locale data |
+| v4.0.0 | 2026-03 | White border fix, mobile breathing room, owner pill, date input |
+| v5.0.0 | 2026-03 | TXT fix, CSV locale rows, Gantt font size, date format toggle, owner legend |
+| v6.0.0 | 2026-03 | Pill borders, auto phase-init, adjustment notes, schedule reminders |
+| v7.0.0 | 2026-03 | Adj notes + reminders on schedule view, owner-colored bars, dates in label |
+| v8.0.0 | 2026-03 | Correct 2026 holidays, Gantt/List labels, locale info bar, color-coded list |
+| v9.0.0 | 2026-03 | Product/Non-Product types, single work type selection, clean list view |
