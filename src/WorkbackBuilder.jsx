@@ -454,7 +454,7 @@ function ManageOwners({ owners, onAddOwner, onDeleteOwner }) {
         <div style={{ marginBottom: 12 }}>
           <div style={{ fontSize: 8, letterSpacing: 2, color: "#2a2a2a", marginBottom: 8 }}>CUSTOM</div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            {customs.map(([k, v]) => (<div key={k} style={{ display: "flex", alignItems: "center" }}><div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", background: v.color + "12", border: `1px solid ${v.color}38`, borderRight: "none", borderRadius: "3px 0 0 3px" }}><div style={{ width: 7, height: 7, borderRadius: 2, background: v.color, flexShrink: 0 }} /><span style={{ fontSize: 11, color: v.color }}>{v.label}</span></div><button onClick={() => onDeleteOwner(k)} title="Remove owner" style={{ padding: "4px 8px", background: v.color + "12", border: `1px solid ${v.color}38`, borderLeft: "none", color: v.color, borderRadius: "0 3px 3px 0", cursor: "pointer", fontSize: 11, lineHeight: 1 }}>×</button></div>))}
+            {customs.map(([k, v]) => (<div key={k} style={{ display: "flex", alignItems: "center" }}><div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", background: v.color + "12", border: `1px solid ${v.color}38`, borderRight: "none", borderRadius: "3px 0 0 3px" }}><div style={{ width: 7, height: 7, borderRadius: 2, background: v.color, flexShrink: 0 }} /><span style={{ fontSize: 11, color: v.color }}>{v.label}</span></div><button onClick={() => onDeleteOwner(k)} title="Remove owner" style={{ padding: "4px 9px", background: v.color + "12", border: `1px solid ${v.color}38`, borderLeft: "none", color: v.color, borderRadius: "0 3px 3px 0", cursor: "pointer", fontSize: 13, lineHeight: 1 }}>×</button></div>))}
           </div>
         </div>
       )}
@@ -721,7 +721,7 @@ export default function WorkbackBuilder() {
         <div style={S.sec}><span style={S.lbl}>Project Name</span><input style={S.input} placeholder="e.g. Global Launch for XYZ" value={projectName} onChange={e => set("projectName", e.target.value)} /></div>
         <div style={S.sec}><span style={S.lbl}>Project Type</span><div style={{ display: "flex", gap: 8 }}>{[["npi","NPI"],["non-npi","Non-NPI (Misc)"]].map(([id,lbl]) => (<button key={id} onClick={() => set("projectType", id)} style={S.btn(projectType === id)}>{lbl}</button>))}</div></div>
         <div style={S.sec}><span style={S.lbl}>Schedule Direction</span><div style={{ display: "flex", gap: 8 }}>{[["backward","← Backward from Launch"],["forward","Forward from Kick-off →"]].map(([id,lbl]) => (<button key={id} onClick={() => set("direction", id)} style={S.btn(direction === id)}>{lbl}</button>))}</div></div>
-        <div style={S.sec}><span style={S.lbl}>{direction === "backward" ? "Launch Date" : "Kick-off Date"}</span><input type="date" style={S.input} value={targetDate} onChange={e => set("targetDate", e.target.value)} /></div>
+        <div style={S.sec}><span style={S.lbl}>{direction === "backward" ? "Launch Date" : "Kick-off Date"}</span><input type="date" style={{ ...S.input, maxWidth: "100%", minWidth: 0 }} value={targetDate} onChange={e => set("targetDate", e.target.value)} /></div>
 
         {/* Work Types */}
         <div style={S.sec}>
@@ -731,7 +731,7 @@ export default function WorkbackBuilder() {
             {customWorkTypes.map(cwt => (
               <div key={cwt.id} style={{ display: "flex", alignItems: "center" }}>
                 <button onClick={() => toggleWorkType(cwt.id)} style={{ ...S.pill(workTypes[cwt.id], cwt.color), borderRadius: "3px 0 0 3px", borderRight: "none" }}>{cwt.label}</button>
-                <button onClick={() => deleteCustomWorkType(cwt.id)} style={{ padding: "8px 8px", background: workTypes[cwt.id] ? cwt.color+"22" : "#0e0e0e", border: `1.5px solid ${workTypes[cwt.id] ? cwt.color : "#1e1e1e"}`, color: workTypes[cwt.id] ? cwt.color : "#555", fontSize: 12, fontFamily: "'DM Sans', sans-serif", borderRadius: "0 3px 3px 0", cursor: "pointer" }}>×</button>
+                <button onClick={() => deleteCustomWorkType(cwt.id)} style={{ padding: "8px 9px", background: workTypes[cwt.id] ? cwt.color+"22" : "#0e0e0e", border: `1.5px solid ${workTypes[cwt.id] ? cwt.color : "#1e1e1e"}`, borderLeft: "none", color: workTypes[cwt.id] ? cwt.color : "#555", fontSize: 13, lineHeight: 1, fontFamily: "'DM Sans', sans-serif", borderRadius: "0 3px 3px 0", cursor: "pointer" }}>×</button>
               </div>
             ))}
             <button onClick={() => setShowCustomModal(true)} style={{ padding: "8px 14px", background: "transparent", border: "1.5px dashed #2a2a2a", color: "#444", fontSize: 11, letterSpacing: 1, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", borderRadius: 3, cursor: "pointer" }}
@@ -791,13 +791,13 @@ export default function WorkbackBuilder() {
                 const awt = allWorkTypes.find(w => w.id === activeTab);
                 return (
                   <div>
-                    <div style={{ display: "grid", gridTemplateColumns: "36px 1fr 190px 60px", gap: 8, marginBottom: 8, padding: "0 4px" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "28px 1fr min(190px,40%) min(60px,15%)", gap: 6, marginBottom: 8, padding: "0 4px" }}>
                       {["ON","PHASE","OWNER","DAYS"].map(h => <span key={h} style={{ fontSize: 8, letterSpacing: 2, color: "#444" }}>{h}</span>)}
                     </div>
                     {phases[activeTab].map((p, idx) => {
                       const dimmed = p.translationPhase && !translationsOn;
                       return (
-                        <div key={p.id || idx} style={{ display: "grid", gridTemplateColumns: "36px 1fr 190px 60px", gap: 8, padding: "8px 4px", borderBottom: "1px solid #111", alignItems: "start", opacity: dimmed ? 0.3 : p.enabled ? 1 : 0.4 }}>
+                        <div key={p.id || idx} style={{ display: "grid", gridTemplateColumns: "28px 1fr min(190px,40%) min(60px,15%)", gap: 6, padding: "10px 4px", borderBottom: "1px solid #111", alignItems: "start", opacity: dimmed ? 0.3 : p.enabled ? 1 : 0.4 }}>
                           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", paddingTop: 9 }}>
                             <div onClick={() => !dimmed && updatePhase(activeTab, idx, "enabled", !p.enabled)} style={{ width: 18, height: 18, borderRadius: 3, border: `1.5px solid ${p.enabled && !dimmed ? "#E31937" : "#333"}`, background: p.enabled && !dimmed ? "#E31937" : "transparent", cursor: dimmed ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#fff" }}>{p.enabled && !dimmed && "✓"}</div>
                           </div>
@@ -932,7 +932,7 @@ export default function WorkbackBuilder() {
   // ── RENDER ─────────────────────────────────────────────────────────────────
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#060606", color: "#e8e8e8", fontFamily: "'DM Sans', sans-serif", overflow: "hidden" }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Barlow+Condensed:wght@400;600;700;800;900&display=swap');::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#1e1e1e;border-radius:2px}input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(0.7)}input[type="number"]::-webkit-inner-spin-button{opacity:1}input:focus{border-color:#E31937 !important;outline:none}select{color-scheme:dark}button:focus{outline:none}`}</style>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Barlow+Condensed:wght@400;600;700;800;900&display=swap');*{box-sizing:border-box}html,body{margin:0;padding:0;background:#060606;overflow:hidden}::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#1e1e1e;border-radius:2px}input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(0.7)}input[type="date"]{width:100%;min-width:0;-webkit-appearance:none;appearance:none}input[type="number"]::-webkit-inner-spin-button{opacity:1}input:focus{border-color:#E31937 !important;outline:none}select{color-scheme:dark}button:focus{outline:none}`}</style>
 
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 24px", borderBottom: "1px solid #111", flexShrink: 0, background: "#060606" }}>
@@ -943,7 +943,7 @@ export default function WorkbackBuilder() {
       </div>
 
       {/* Body: full width, no sidebar */}
-      <div style={{ flex: 1, overflow: "auto", padding: "20px 24px" }}>
+      <div style={{ flex: 1, overflow: "auto", padding: "16px" }}>
         {view === "setup" ? renderSetup() : renderSchedule()}
       </div>
 
