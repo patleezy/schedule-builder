@@ -3,34 +3,35 @@ import { useState, useRef, useCallback, useEffect } from "react";
 // ── LOCALE DATA ────────────────────────────────────────────────────────────
 
 const ALL_LOCALES = [
-  // Tier 1
-  { code: "en-US", label: "English (US)",        flag: "🇺🇸", tier: 1 },
-  { code: "en-GB", label: "English (UK)",         flag: "🇬🇧", tier: 1 },
-  { code: "en-AU", label: "English (AU)",         flag: "🇦🇺", tier: 1 },
-  { code: "en-CA", label: "English (CA)",         flag: "🇨🇦", tier: 1 },
-  { code: "fr-FR", label: "French (France)",      flag: "🇫🇷", tier: 1 },
-  { code: "fr-CA", label: "French (Canada)",      flag: "🇨🇦", tier: 1 },
-  { code: "de-DE", label: "German",               flag: "🇩🇪", tier: 1 },
-  { code: "es-ES", label: "Spanish (Spain)",      flag: "🇪🇸", tier: 1 },
-  { code: "es-MX", label: "Spanish (Mexico)",     flag: "🇲🇽", tier: 1 },
-  { code: "it-IT", label: "Italian",              flag: "🇮🇹", tier: 1 },
-  { code: "ja-JP", label: "Japanese",             flag: "🇯🇵", tier: 1 },
-  { code: "zh-CN", label: "Chinese (Simplified)", flag: "🇨🇳", tier: 1 },
-  { code: "zh-TW", label: "Chinese (Traditional)",flag: "🇹🇼", tier: 2 },
-  { code: "ko-KR", label: "Korean",               flag: "🇰🇷", tier: 2 },
-  { code: "pt-BR", label: "Portuguese (Brazil)",  flag: "🇧🇷", tier: 2 },
-  { code: "pt-PT", label: "Portuguese (Portugal)",flag: "🇵🇹", tier: 1 },
-  { code: "nl-NL", label: "Dutch",                flag: "🇳🇱", tier: 2 },
-  { code: "sv-SE", label: "Swedish",              flag: "🇸🇪", tier: 2 },
-  { code: "da-DK", label: "Danish",               flag: "🇩🇰", tier: 1 },
-  { code: "nb-NO", label: "Norwegian",            flag: "🇳🇴", tier: 1 },
-  { code: "fi-FI", label: "Finnish",              flag: "🇫🇮", tier: 1 },
-  { code: "pl-PL", label: "Polish",               flag: "🇵🇱", tier: 1 },
-  { code: "ru-RU", label: "Russian",              flag: "🇷🇺", tier: 1 },
-  { code: "ar-SA", label: "Arabic",               flag: "🇸🇦", tier: 1 },
-  { code: "tr-TR", label: "Turkish",              flag: "🇹🇷", tier: 1 },
-  { code: "th-TH", label: "Thai",                 flag: "🇹🇭", tier: 1 },
-  { code: "zh-HK", label: "Chinese (Hong Kong)",  flag: "🇭🇰", tier: 2 },
+  // ── Tier 1: Core Markets (15 locales) ──────────────────────────
+  { code: "en-US",   label: "English (US)",              flag: "🇺🇸", tier: 1 },
+  { code: "ja-JP",   label: "Japanese",                  flag: "🇯🇵", tier: 1 },
+  { code: "en-GB",   label: "English (UK)",              flag: "🇬🇧", tier: 1 },
+  { code: "en-CN",   label: "English (China)",           flag: "🇨🇳", tier: 1 },
+  { code: "en-IN",   label: "English (India)",           flag: "🇮🇳", tier: 1 },
+  { code: "en-CA",   label: "English (Canada)",          flag: "🇨🇦", tier: 1 },
+  { code: "fr-CA",   label: "French (Canada)",           flag: "🇨🇦", tier: 1 },
+  { code: "es-MX",   label: "Spanish (Mexico)",          flag: "🇲🇽", tier: 1 },
+  { code: "es-ES",   label: "Spanish (Spain)",           flag: "🇪🇸", tier: 1 },
+  { code: "de-DE",   label: "German",                    flag: "🇩🇪", tier: 1 },
+  { code: "fr-FR",   label: "French (France)",           flag: "🇫🇷", tier: 1 },
+  { code: "en-AU",   label: "English (Australia)",       flag: "🇦🇺", tier: 1 },
+  { code: "it-IT",   label: "Italian",                   flag: "🇮🇹", tier: 1 },
+  { code: "en-IE",   label: "English (Ireland)",         flag: "🇮🇪", tier: 1 },
+  { code: "en-SG",   label: "English (Singapore)",       flag: "🇸🇬", tier: 1 },
+  // ── Tier 2: Additional Markets (12 locales) ────────────────────
+  { code: "zh-HK",   label: "Chinese (Hong Kong)",       flag: "🇭🇰", tier: 2 },
+  { code: "pt-BR",   label: "Portuguese (Brazil)",       flag: "🇧🇷", tier: 2 },
+  { code: "zh-TW",   label: "Chinese (Taiwan)",          flag: "🇹🇼", tier: 2 },
+  { code: "ko-KR",   label: "Korean",                    flag: "🇰🇷", tier: 2 },
+  { code: "nl-NL",   label: "Dutch (Netherlands)",       flag: "🇳🇱", tier: 2 },
+  { code: "fr-BE",   label: "French (Belgium)",          flag: "🇧🇪", tier: 2 },
+  { code: "nl-BE",   label: "Dutch (Belgium)",           flag: "🇧🇪", tier: 2 },
+  { code: "de-CH",   label: "German (Switzerland)",      flag: "🇨🇭", tier: 2 },
+  { code: "fr-CH",   label: "French (Switzerland)",      flag: "🇨🇭", tier: 2 },
+  { code: "de-AT",   label: "German (Austria)",          flag: "🇦🇹", tier: 2 },
+  { code: "sv-SE",   label: "Swedish",                   flag: "🇸🇪", tier: 2 },
+  { code: "en-HK",   label: "English (Hong Kong)",       flag: "🇭🇰", tier: 2 },
 ];
 
 const TIER1_CODES = ALL_LOCALES.filter(l => l.tier === 1).map(l => l.code);
@@ -38,8 +39,8 @@ const WORLDWIDE_CODES = ALL_LOCALES.map(l => l.code);
 
 const TRANSLATION_TIERS = [
   { id: "none",      label: "US Only",   sub: "No translations",              locales: [] },
-  { id: "tier1",     label: "Tier 1",    sub: `${TIER1_CODES.length} locales · 10 languages`, locales: TIER1_CODES },
-  { id: "worldwide", label: "Worldwide", sub: `${WORLDWIDE_CODES.length} locales · 16 languages`, locales: WORLDWIDE_CODES },
+  { id: "tier1",     label: "Tier 1",    sub: "15 locales · 10 languages", locales: TIER1_CODES },
+  { id: "worldwide", label: "Worldwide", sub: "27 locales · 16 languages", locales: WORLDWIDE_CODES },
   { id: "custom",    label: "Custom",    sub: "Choose specific locales",       locales: null },
 ];
 
@@ -288,10 +289,12 @@ function TranslationTierSelector({ value, customLocales, onChange, onCustomLocal
   );
 }
 
-// ── SAVED PROJECTS SIDEBAR ─────────────────────────────────────────────────
+// ── SAVE PROJECTS BAR ──────────────────────────────────────────────────────
+// Compact top-of-page save/load bar replacing the sidebar
 
-function SavedProjectsSidebar({ onLoad, currentState, onSaveNew }) {
+function SaveProjectsBar({ onLoad, currentState }) {
   const [projects, setProjects] = useState([]);
+  const [showPanel, setShowPanel] = useState(false);
   const [saveMode, setSaveMode] = useState(false);
   const [saveName, setSaveName] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState(null);
@@ -310,103 +313,76 @@ function SavedProjectsSidebar({ onLoad, currentState, onSaveNew }) {
 
   const handleSave = () => {
     if (!saveName.trim()) return;
-    const entry = {
-      id: Date.now(),
-      name: saveName.trim(),
-      savedAt: Date.now(),
-      state: currentState,
-    };
-    persist([entry, ...projects]);
-    setSaveName("");
-    setSaveMode(false);
+    persist([{ id: Date.now(), name: saveName.trim(), savedAt: Date.now(), state: currentState }, ...projects]);
+    setSaveName(""); setSaveMode(false);
   };
 
-  const handleDelete = (id) => {
-    persist(projects.filter(p => p.id !== id));
-    setDeleteConfirm(null);
-  };
+  const handleDelete = (id) => { persist(projects.filter(p => p.id !== id)); setDeleteConfirm(null); };
 
-  const handleOverwrite = (id) => {
-    const updated = projects.map(p => p.id === id ? { ...p, savedAt: Date.now(), state: currentState } : p);
-    persist(updated);
-    setSaveMode(false);
-  };
+  const btnStyle = (active) => ({
+    display: "flex", alignItems: "center", gap: 6, padding: "8px 14px",
+    background: active ? "rgba(227,25,55,0.12)" : "#0a0a0a",
+    border: `1.5px solid ${active ? "#E31937" : "#1e1e1e"}`,
+    color: active ? "#E31937" : "#666", fontSize: 11, letterSpacing: 1, fontWeight: 600,
+    fontFamily: "'DM Sans', sans-serif", borderRadius: 4, cursor: "pointer", transition: "all 0.15s",
+  });
 
   return (
-    <div style={{
-      width: 220, flexShrink: 0, background: "#080808", borderRight: "1px solid #111",
-      display: "flex", flexDirection: "column", height: "100%", overflow: "hidden",
-    }}>
-      {/* Header */}
-      <div style={{ padding: "16px 16px 12px", borderBottom: "1px solid #111" }}>
-        <div style={{ fontSize: 8, letterSpacing: 3, color: "#333", fontWeight: 700, marginBottom: 10 }}>SAVED PROJECTS</div>
-        {!saveMode ? (
-          <button onClick={() => { setSaveMode(true); setSaveName(currentState.projectName || ""); }}
-            style={{ width: "100%", padding: "7px 0", background: "transparent", border: "1.5px dashed #222", color: "#444", fontSize: 10, letterSpacing: 1, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", borderRadius: 3, cursor: "pointer", transition: "all 0.15s" }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = "#E31937"; e.currentTarget.style.color = "#E31937"; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = "#222"; e.currentTarget.style.color = "#444"; }}>
-            + SAVE CURRENT
-          </button>
-        ) : (
-          <div>
-            <input autoFocus value={saveName} onChange={e => setSaveName(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter") handleSave(); if (e.key === "Escape") setSaveMode(false); }}
-              placeholder="Project name…"
-              style={{ width: "100%", background: "#0e0e0e", border: "1.5px solid #E31937", color: "#ddd", fontFamily: "'DM Sans', sans-serif", fontSize: 11, padding: "7px 10px", borderRadius: 4, outline: "none", boxSizing: "border-box", marginBottom: 6 }} />
-            <div style={{ display: "flex", gap: 4 }}>
-              <button onClick={handleSave} style={{ flex: 1, padding: "5px 0", background: "#E31937", border: "none", color: "#fff", fontSize: 9, letterSpacing: 1, fontWeight: 700, borderRadius: 3, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>SAVE</button>
-              <button onClick={() => setSaveMode(false)} style={{ padding: "5px 8px", background: "none", border: "1px solid #222", color: "#555", fontSize: 9, borderRadius: 3, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>✕</button>
-            </div>
-          </div>
-        )}
+    <div style={{ marginBottom: 20 }}>
+      {/* Action row */}
+      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: showPanel || saveMode ? 10 : 0 }}>
+        <button onClick={() => { setShowPanel(p => !p); setSaveMode(false); }} style={btnStyle(showPanel)}>
+          <span style={{ fontSize: 14 }}>🗂</span> SAVED PROJECTS {projects.length > 0 && <span style={{ fontSize: 9, background: "#E31937", color: "#fff", borderRadius: 10, padding: "1px 6px", marginLeft: 2 }}>{projects.length}</span>}
+        </button>
+        <button onClick={() => { setSaveMode(p => !p); setShowPanel(false); setSaveName(currentState.projectName || ""); }} style={btnStyle(saveMode)}>
+          <span style={{ fontSize: 14 }}>💾</span> SAVE
+        </button>
       </div>
 
-      {/* Project list */}
-      <div style={{ flex: 1, overflow: "auto" }}>
-        {projects.length === 0 ? (
-          <div style={{ padding: "24px 16px", textAlign: "center", color: "#2a2a2a", fontSize: 11, lineHeight: 1.6 }}>
-            No saved projects yet.<br />Save your current setup to access it here.
-          </div>
-        ) : (
-          projects.map(p => (
-            <div key={p.id} style={{ borderBottom: "1px solid #0f0f0f" }}>
+      {/* Save name input */}
+      {saveMode && (
+        <div style={{ display: "flex", gap: 8, alignItems: "center", padding: "12px", background: "#0a0a0a", border: "1px solid #1e1e1e", borderRadius: 6, marginBottom: 4 }}>
+          <input autoFocus value={saveName} onChange={e => setSaveName(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") handleSave(); if (e.key === "Escape") setSaveMode(false); }}
+            placeholder="Name this project…"
+            style={{ flex: 1, background: "#060606", border: "1.5px solid #E31937", color: "#ddd", fontFamily: "'DM Sans', sans-serif", fontSize: 12, padding: "8px 12px", borderRadius: 4, outline: "none" }} />
+          <button onClick={handleSave} style={{ padding: "8px 16px", background: "#E31937", border: "none", color: "#fff", fontSize: 10, letterSpacing: 2, fontWeight: 700, borderRadius: 3, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>SAVE</button>
+          <button onClick={() => setSaveMode(false)} style={{ padding: "8px 10px", background: "none", border: "1px solid #222", color: "#555", fontSize: 11, borderRadius: 3, cursor: "pointer" }}>✕</button>
+        </div>
+      )}
+
+      {/* Saved projects dropdown panel */}
+      {showPanel && (
+        <div style={{ background: "#0a0a0a", border: "1px solid #1e1e1e", borderRadius: 6, overflow: "hidden" }}>
+          {projects.length === 0 ? (
+            <div style={{ padding: "20px", textAlign: "center", color: "#333", fontSize: 11 }}>No saved projects yet</div>
+          ) : projects.map(p => (
+            <div key={p.id} style={{ borderBottom: "1px solid #111" }}>
               {deleteConfirm === p.id ? (
-                <div style={{ padding: "10px 12px", background: "#0f0a0a" }}>
-                  <div style={{ fontSize: 10, color: "#E31937", marginBottom: 8 }}>Delete "{p.name}"?</div>
-                  <div style={{ display: "flex", gap: 4 }}>
-                    <button onClick={() => handleDelete(p.id)} style={{ flex: 1, padding: "4px 0", background: "#E31937", border: "none", color: "#fff", fontSize: 9, fontWeight: 700, borderRadius: 3, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>DELETE</button>
-                    <button onClick={() => setDeleteConfirm(null)} style={{ padding: "4px 8px", background: "none", border: "1px solid #222", color: "#555", fontSize: 9, borderRadius: 3, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>CANCEL</button>
-                  </div>
+                <div style={{ padding: "10px 16px", display: "flex", alignItems: "center", gap: 10, background: "#0f0a0a" }}>
+                  <span style={{ fontSize: 11, color: "#E31937", flex: 1 }}>Delete "{p.name}"?</span>
+                  <button onClick={() => handleDelete(p.id)} style={{ padding: "4px 12px", background: "#E31937", border: "none", color: "#fff", fontSize: 9, fontWeight: 700, borderRadius: 3, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>DELETE</button>
+                  <button onClick={() => setDeleteConfirm(null)} style={{ padding: "4px 10px", background: "none", border: "1px solid #222", color: "#555", fontSize: 9, borderRadius: 3, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>CANCEL</button>
                 </div>
               ) : (
-                <div style={{ padding: "10px 12px", cursor: "pointer", transition: "background 0.1s" }}
-                  onMouseEnter={e => e.currentTarget.style.background = "#0d0d0d"}
+                <div style={{ padding: "10px 16px", display: "flex", alignItems: "center", gap: 12, cursor: "pointer", transition: "background 0.1s" }}
+                  onMouseEnter={e => e.currentTarget.style.background = "#0e0e0e"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-                  onClick={() => onLoad(p.state)}>
-                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 4 }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 11, color: "#ccc", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
-                      <div style={{ fontSize: 9, color: "#333", marginTop: 2 }}>{fmtShort(p.savedAt)}</div>
-                      {p.state.projectName && p.state.projectName !== p.name && (
-                        <div style={{ fontSize: 9, color: "#2a2a2a", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.state.projectName}</div>
-                      )}
-                    </div>
-                    <button onClick={e => { e.stopPropagation(); setDeleteConfirm(p.id); }}
-                      style={{ background: "none", border: "none", color: "#2a2a2a", cursor: "pointer", fontSize: 13, padding: "0 2px", flexShrink: 0, lineHeight: 1 }}
-                      onMouseEnter={e => e.currentTarget.style.color = "#E31937"}
-                      onMouseLeave={e => e.currentTarget.style.color = "#2a2a2a"}>×</button>
+                  onClick={() => { onLoad(p.state); setShowPanel(false); }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, color: "#ccc", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
+                    <div style={{ fontSize: 9, color: "#444", marginTop: 2 }}>{fmtShort(p.savedAt)}</div>
                   </div>
+                  <button onClick={e => { e.stopPropagation(); setDeleteConfirm(p.id); }}
+                    style={{ background: "none", border: "none", color: "#333", cursor: "pointer", fontSize: 14, padding: "0 4px", flexShrink: 0 }}
+                    onMouseEnter={e => e.currentTarget.style.color = "#E31937"}
+                    onMouseLeave={e => e.currentTarget.style.color = "#333"}>×</button>
                 </div>
               )}
             </div>
-          ))
-        )}
-      </div>
-
-      {/* Footer version */}
-      <div style={{ padding: "8px 16px", borderTop: "1px solid #0f0f0f" }}>
-        <span style={{ fontSize: 8, letterSpacing: 2, color: "#1e1e1e" }}>v2.0.0</span>
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -733,10 +709,13 @@ export default function WorkbackBuilder() {
   // ── SETUP VIEW ─────────────────────────────────────────────────────────────
   const renderSetup = () => (
     <div style={{ maxWidth: 720, margin: "0 auto" }}>
-      <div style={{ textAlign: "center", marginBottom: 32 }}>
+      <div style={{ textAlign: "center", marginBottom: 24 }}>
         <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 28, letterSpacing: 8, fontWeight: 800, marginBottom: 6 }}>SCHEDULE BUILDER</div>
         <div style={{ fontSize: 12, color: "#444" }}>Configure your project, then generate your schedule</div>
       </div>
+
+      {/* Save / Saved Projects action bar */}
+      <SaveProjectsBar onLoad={loadProject} currentState={currentSnapshot} />
 
       <div style={S.card}>
         <div style={S.sec}><span style={S.lbl}>Project Name</span><input style={S.input} placeholder="e.g. Global Launch for XYZ" value={projectName} onChange={e => set("projectName", e.target.value)} /></div>
@@ -963,12 +942,9 @@ export default function WorkbackBuilder() {
         )}
       </div>
 
-      {/* Body: sidebar + main */}
-      <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-        <SavedProjectsSidebar onLoad={loadProject} currentState={currentSnapshot} />
-        <div style={{ flex: 1, overflow: "auto", padding: "24px" }}>
-          {view === "setup" ? renderSetup() : renderSchedule()}
-        </div>
+      {/* Body: full width, no sidebar */}
+      <div style={{ flex: 1, overflow: "auto", padding: "20px 24px" }}>
+        {view === "setup" ? renderSetup() : renderSchedule()}
       </div>
 
       {showCustomModal && <CustomWorkTypeModal onSave={handleAddCustomWorkType} onClose={() => setShowCustomModal(false)} owners={owners} onAddOwner={addOwner} />}
