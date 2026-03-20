@@ -1001,7 +1001,7 @@ export default function WorkbackBuilder() {
                   return (
                     <div key={p.id||pi} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid #111" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ fontSize: 11.5, color: "#bbb" }}>{p.name}</span><span style={{ fontSize: 8, letterSpacing: 1, padding: "2px 6px", borderRadius: 2, background: ow.color+"15", color: ow.color }}>{ow.label}</span></div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 16 }}><span style={{ fontSize: 11, color: "#666" }}>{fmtDate(p.start)} → {fmtDate(p.end)</span><span style={{ fontSize: 10, color: "#444", minWidth: 36, textAlign: "right" }}>{p.duration}d</span><span style={{ fontSize: 10, color: "#E31937", fontWeight: 600, minWidth: 44, textAlign: "right" }}>{p.start <= target ? `T-${tW}w` : `T+${tW}w`}</span></div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 16 }}><span style={{ fontSize: 11, color: "#666" }}>{fmtDate(p.start)} → {fmtDate(p.end)}</span><span style={{ fontSize: 10, color: "#444", minWidth: 36, textAlign: "right" }}>{p.duration}d</span><span style={{ fontSize: 10, color: "#E31937", fontWeight: 600, minWidth: 44, textAlign: "right" }}>{p.start <= target ? `T-${tW}w` : `T+${tW}w`}</span></div>
                     </div>
                   );
                 })}
