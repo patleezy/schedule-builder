@@ -1060,39 +1060,39 @@ export default function WorkbackBuilder() {
             );
           })}
         </div>
-      </div>
 
-      {/* Schedule Reminders — only for built-in work types */}
-      {Object.keys(schedule).some(wt => ["email","pdp","plp","hp"].includes(wt)) && (
+        {/* Schedule Reminders — only for built-in work types */}
+        {Object.keys(schedule).some(wt => ["email","pdp","plp","hp"].includes(wt)) && (
+          <div style={{ ...S.card, marginTop: 8 }}>
+            <span style={{ ...S.lbl, marginBottom: 10, display: "block" }}>Schedule Reminders</span>
+            <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+              {[
+                "Team QA can start on the US version while Translations/ICR is in progress",
+                "QA can begin at the end of ICR Round 1 to overlap with Round 2 if time is tight",
+                "Build page can start without final copy (placeholders OK)",
+                "If schedule exceeds launch date, compress Build, Team QA, and/or Translations buffer",
+                "Legal review can run in parallel with design wires if bandwidth allows",
+                "Fast-follow assets should be scoped and briefed before launch, not after",
+              ].map((tip, i) => (
+                <li key={i} style={{ display: "flex", gap: 8, padding: "5px 0", borderBottom: "1px solid #0f0f0f", alignItems: "flex-start" }}>
+                  <span style={{ color: "#E31937", fontSize: 10, marginTop: 2, flexShrink: 0 }}>•</span>
+                  <span style={{ fontSize: 11, color: "#555", lineHeight: 1.5 }}>{tip}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Adjustment Notes */}
         <div style={{ ...S.card, marginTop: 8 }}>
-          <span style={{ ...S.lbl, marginBottom: 10, display: "block" }}>Schedule Reminders</span>
-          <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-            {[
-              "Team QA can start on the US version while Translations/ICR is in progress",
-              "QA can begin at the end of ICR Round 1 to overlap with Round 2 if time is tight",
-              "Build page can start without final copy (placeholders OK)",
-              "If schedule exceeds launch date, compress Build, Team QA, and/or Translations buffer",
-              "Legal review can run in parallel with design wires if bandwidth allows",
-              "Fast-follow assets should be scoped and briefed before launch, not after",
-            ].map((tip, i) => (
-              <li key={i} style={{ display: "flex", gap: 8, padding: "5px 0", borderBottom: "1px solid #0f0f0f", alignItems: "flex-start" }}>
-                <span style={{ color: "#E31937", fontSize: 10, marginTop: 2, flexShrink: 0 }}>•</span>
-                <span style={{ fontSize: 11, color: "#555", lineHeight: 1.5 }}>{tip}</span>
-              </li>
-            ))}
-          </ul>
+          <div style={{ marginBottom: 8 }}>
+            <span style={{ ...S.lbl, marginBottom: 4, display: "block" }}>Adjustment Notes</span>
+            <div style={{ fontSize: 10, color: "#3a3a3a", marginBottom: 10 }}>Log changes here for context when sharing. Included in all exports.</div>
+          </div>
+          <AdjustmentNotes notes={adjustmentNotes} onAdd={addNote} onRemove={removeNote} inputStyle={S.input} btnStyle={S.btn} />
         </div>
-      )}
 
-      {/* Adjustment Notes */}
-      <div style={{ ...S.card, marginTop: 8 }}>
-        <div style={{ marginBottom: 8 }}>
-          <span style={{ ...S.lbl, marginBottom: 4, display: "block" }}>Adjustment Notes</span>
-          <div style={{ fontSize: 10, color: "#3a3a3a", marginBottom: 10 }}>Log changes here for context when sharing. Included in all exports.</div>
-        </div>
-        <AdjustmentNotes notes={adjustmentNotes} onAdd={addNote} onRemove={removeNote} inputStyle={S.input} btnStyle={S.btn} />
       </div>
-
     );
   };
 
