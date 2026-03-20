@@ -1,4 +1,49 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
+
+// ── LOCALE DATA ────────────────────────────────────────────────────────────
+
+const ALL_LOCALES = [
+  // Tier 1
+  { code: "en-US", label: "English (US)",        flag: "🇺🇸", tier: 1 },
+  { code: "en-GB", label: "English (UK)",         flag: "🇬🇧", tier: 1 },
+  { code: "en-AU", label: "English (AU)",         flag: "🇦🇺", tier: 1 },
+  { code: "en-CA", label: "English (CA)",         flag: "🇨🇦", tier: 1 },
+  { code: "fr-FR", label: "French (France)",      flag: "🇫🇷", tier: 1 },
+  { code: "fr-CA", label: "French (Canada)",      flag: "🇨🇦", tier: 1 },
+  { code: "de-DE", label: "German",               flag: "🇩🇪", tier: 1 },
+  { code: "es-ES", label: "Spanish (Spain)",      flag: "🇪🇸", tier: 1 },
+  { code: "es-MX", label: "Spanish (Mexico)",     flag: "🇲🇽", tier: 1 },
+  { code: "it-IT", label: "Italian",              flag: "🇮🇹", tier: 1 },
+  { code: "ja-JP", label: "Japanese",             flag: "🇯🇵", tier: 1 },
+  { code: "zh-CN", label: "Chinese (Simplified)", flag: "🇨🇳", tier: 1 },
+  { code: "zh-TW", label: "Chinese (Traditional)",flag: "🇹🇼", tier: 2 },
+  { code: "ko-KR", label: "Korean",               flag: "🇰🇷", tier: 2 },
+  { code: "pt-BR", label: "Portuguese (Brazil)",  flag: "🇧🇷", tier: 2 },
+  { code: "pt-PT", label: "Portuguese (Portugal)",flag: "🇵🇹", tier: 1 },
+  { code: "nl-NL", label: "Dutch",                flag: "🇳🇱", tier: 2 },
+  { code: "sv-SE", label: "Swedish",              flag: "🇸🇪", tier: 2 },
+  { code: "da-DK", label: "Danish",               flag: "🇩🇰", tier: 1 },
+  { code: "nb-NO", label: "Norwegian",            flag: "🇳🇴", tier: 1 },
+  { code: "fi-FI", label: "Finnish",              flag: "🇫🇮", tier: 1 },
+  { code: "pl-PL", label: "Polish",               flag: "🇵🇱", tier: 1 },
+  { code: "ru-RU", label: "Russian",              flag: "🇷🇺", tier: 1 },
+  { code: "ar-SA", label: "Arabic",               flag: "🇸🇦", tier: 1 },
+  { code: "tr-TR", label: "Turkish",              flag: "🇹🇷", tier: 1 },
+  { code: "th-TH", label: "Thai",                 flag: "🇹🇭", tier: 1 },
+  { code: "zh-HK", label: "Chinese (Hong Kong)",  flag: "🇭🇰", tier: 2 },
+];
+
+const TIER1_CODES = ALL_LOCALES.filter(l => l.tier === 1).map(l => l.code);
+const WORLDWIDE_CODES = ALL_LOCALES.map(l => l.code);
+
+const TRANSLATION_TIERS = [
+  { id: "none",      label: "US Only",   sub: "No translations",              locales: [] },
+  { id: "tier1",     label: "Tier 1",    sub: `${TIER1_CODES.length} locales · 10 languages`, locales: TIER1_CODES },
+  { id: "worldwide", label: "Worldwide", sub: `${WORLDWIDE_CODES.length} locales · 16 languages`, locales: WORLDWIDE_CODES },
+  { id: "custom",    label: "Custom",    sub: "Choose specific locales",       locales: null },
+];
+
+// ── CONSTANTS ──────────────────────────────────────────────────────────────
 
 const HOLIDAYS_2026 = [
   "2026-01-01","2026-01-19","2026-05-25","2026-06-19","2026-07-03","2026-09-07",
@@ -62,6 +107,10 @@ const NON_NPI_PHASES = (wt) => [
   { id: "push",         name: "Push to production",         owner: "ops",      dur: 1, milestone: true },
 ];
 
+const STORAGE_KEY = "schedule_builder_saved_projects";
+
+// ── DATE HELPERS ────────────────────────────────────────────────────────────
+
 const fmt = (d) => d.toISOString().split("T")[0];
 const parseDate = (s) => { const [y,m,d] = s.split("-").map(Number); return new Date(y, m-1, d); };
 const isWeekend = (d) => d.getDay() === 0 || d.getDay() === 6;
@@ -84,6 +133,285 @@ const fmtDisplay = (d) => {
   const days   = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   return `${days[d.getDay()]} ${months[d.getMonth()]} ${d.getDate()}`;
 };
+const fmtShort = (ts) => {
+  const d = new Date(ts);
+  return `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,"0")}`;
+};
+
+// ── LOCALE PICKER MODAL ────────────────────────────────────────────────────
+
+function LocalePickerModal({ selected, onSave, onClose }) {
+  const [sel, setSel] = useState(new Set(selected));
+  const toggle = (code) => setSel(prev => { const n = new Set(prev); n.has(code) ? n.delete(code) : n.add(code); return n; });
+  const selectAll = () => setSel(new Set(ALL_LOCALES.map(l => l.code)));
+  const clearAll  = () => setSel(new Set());
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ background: "#0e0e0e", border: "1px solid #222", borderRadius: 8, width: "100%", maxWidth: 620, maxHeight: "85vh", display: "flex", flexDirection: "column" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 24px", borderBottom: "1px solid #151515" }}>
+          <div>
+            <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 16, letterSpacing: 4, fontWeight: 700 }}>CUSTOM LOCALES</span>
+            <span style={{ marginLeft: 12, fontSize: 10, color: "#555" }}>{sel.size} selected</span>
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button onClick={selectAll} style={{ fontSize: 9, letterSpacing: 1, padding: "4px 10px", background: "transparent", border: "1px solid #222", color: "#555", borderRadius: 3, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>ALL</button>
+            <button onClick={clearAll}  style={{ fontSize: 9, letterSpacing: 1, padding: "4px 10px", background: "transparent", border: "1px solid #222", color: "#555", borderRadius: 3, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>NONE</button>
+            <button onClick={onClose} style={{ background: "none", border: "1px solid #222", color: "#888", width: 28, height: 28, borderRadius: 3, cursor: "pointer", fontSize: 14 }}>×</button>
+          </div>
+        </div>
+
+        <div style={{ flex: 1, overflow: "auto", padding: "16px 24px" }}>
+          {/* Tier 1 group */}
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 8, letterSpacing: 3, color: "#333", marginBottom: 10, fontWeight: 700 }}>TIER 1 — CORE MARKETS</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {ALL_LOCALES.filter(l => l.tier === 1).map(l => (
+                <button key={l.code} onClick={() => toggle(l.code)} style={{
+                  display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", borderRadius: 4, cursor: "pointer",
+                  background: sel.has(l.code) ? "rgba(168,85,247,0.15)" : "#0a0a0a",
+                  border: `1.5px solid ${sel.has(l.code) ? "#A855F7" : "#1e1e1e"}`,
+                  fontFamily: "'DM Sans', sans-serif", transition: "all 0.12s",
+                }}>
+                  <span style={{ fontSize: 16, lineHeight: 1 }}>{l.flag}</span>
+                  <span style={{ fontSize: 10, color: sel.has(l.code) ? "#A855F7" : "#666", whiteSpace: "nowrap" }}>{l.code}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* Tier 2 group */}
+          <div>
+            <div style={{ fontSize: 8, letterSpacing: 3, color: "#333", marginBottom: 10, fontWeight: 700 }}>TIER 2 — ADDITIONAL MARKETS</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {ALL_LOCALES.filter(l => l.tier === 2).map(l => (
+                <button key={l.code} onClick={() => toggle(l.code)} style={{
+                  display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", borderRadius: 4, cursor: "pointer",
+                  background: sel.has(l.code) ? "rgba(168,85,247,0.15)" : "#0a0a0a",
+                  border: `1.5px solid ${sel.has(l.code) ? "#A855F7" : "#1e1e1e"}`,
+                  fontFamily: "'DM Sans', sans-serif", transition: "all 0.12s",
+                }}>
+                  <span style={{ fontSize: 16, lineHeight: 1 }}>{l.flag}</span>
+                  <span style={{ fontSize: 10, color: sel.has(l.code) ? "#A855F7" : "#666", whiteSpace: "nowrap" }}>{l.code}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ padding: "14px 24px", borderTop: "1px solid #151515", display: "flex", gap: 8, justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: 10, color: "#444" }}>
+            {sel.size > 0 ? [...sel].map(c => ALL_LOCALES.find(l => l.code === c)?.flag).join(" ") : "No locales selected"}
+          </span>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={onClose} style={{ padding: "8px 18px", background: "#0e0e0e", border: "1.5px solid #1e1e1e", color: "#888", fontSize: 11, letterSpacing: 2, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", borderRadius: 3, cursor: "pointer" }}>CANCEL</button>
+            <button onClick={() => onSave([...sel])} style={{ padding: "8px 18px", background: "#A855F7", border: "1.5px solid #A855F7", color: "#fff", fontSize: 11, letterSpacing: 2, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", borderRadius: 3, cursor: "pointer" }}>SAVE SELECTION</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── TRANSLATION TIER SELECTOR ──────────────────────────────────────────────
+
+function TranslationTierSelector({ value, customLocales, onChange, onCustomLocales }) {
+  const [showPicker, setShowPicker] = useState(false);
+
+  const getLocaleCount = (tier) => {
+    if (tier.id === "custom") return customLocales.length;
+    return tier.locales.length;
+  };
+
+  return (
+    <div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: value === "custom" && customLocales.length > 0 ? 10 : 0 }}>
+        {TRANSLATION_TIERS.map(tier => {
+          const active = value === tier.id;
+          const accentColor = "#A855F7";
+          const count = getLocaleCount(tier);
+          return (
+            <button key={tier.id} onClick={() => {
+              onChange(tier.id);
+              if (tier.id === "custom") setShowPicker(true);
+            }} style={{
+              padding: "14px 10px", textAlign: "left", cursor: "pointer",
+              background: active ? "rgba(168,85,247,0.12)" : "#0a0a0a",
+              border: `1.5px solid ${active ? accentColor : "#1e1e1e"}`,
+              borderRadius: 6, fontFamily: "'DM Sans', sans-serif",
+              transition: "all 0.15s", display: "flex", flexDirection: "column", gap: 4,
+            }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: active ? accentColor : "#bbb", display: "block" }}>{tier.label}</span>
+              <span style={{ fontSize: 10, color: active ? accentColor + "cc" : "#444", lineHeight: 1.3 }}>
+                {tier.id === "custom" && customLocales.length > 0
+                  ? `${customLocales.length} locales selected`
+                  : tier.sub}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Custom selected locale flags */}
+      {value === "custom" && customLocales.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "#0a0a0a", border: "1px solid #1a1a1a", borderRadius: 4 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, flex: 1 }}>
+            {customLocales.map(code => {
+              const loc = ALL_LOCALES.find(l => l.code === code);
+              return loc ? <span key={code} title={loc.label} style={{ fontSize: 18, lineHeight: 1, cursor: "default" }}>{loc.flag}</span> : null;
+            })}
+          </div>
+          <button onClick={() => setShowPicker(true)} style={{ fontSize: 9, letterSpacing: 1, padding: "4px 10px", background: "transparent", border: "1px solid #333", color: "#666", borderRadius: 3, cursor: "pointer", flexShrink: 0, fontFamily: "'DM Sans', sans-serif" }}>EDIT</button>
+        </div>
+      )}
+
+      {/* Tier 1 sub-label */}
+      {value === "tier1" && (
+        <div style={{ fontSize: 10, color: "#3a3a3a", marginTop: 6 }}>
+          {ALL_LOCALES.filter(l => l.tier === 1).map(l => l.flag).join(" ")}
+        </div>
+      )}
+      {value === "worldwide" && (
+        <div style={{ fontSize: 10, color: "#3a3a3a", marginTop: 6 }}>
+          All Tier 1 + {ALL_LOCALES.filter(l => l.tier === 2).map(l => l.flag).join(" ")}
+        </div>
+      )}
+
+      {showPicker && (
+        <LocalePickerModal
+          selected={customLocales}
+          onSave={(codes) => { onCustomLocales(codes); setShowPicker(false); }}
+          onClose={() => setShowPicker(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── SAVED PROJECTS SIDEBAR ─────────────────────────────────────────────────
+
+function SavedProjectsSidebar({ onLoad, currentState, onSaveNew }) {
+  const [projects, setProjects] = useState([]);
+  const [saveMode, setSaveMode] = useState(false);
+  const [saveName, setSaveName] = useState("");
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      setProjects(raw ? JSON.parse(raw) : []);
+    } catch { setProjects([]); }
+  }, []);
+
+  const persist = (updated) => {
+    setProjects(updated);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  };
+
+  const handleSave = () => {
+    if (!saveName.trim()) return;
+    const entry = {
+      id: Date.now(),
+      name: saveName.trim(),
+      savedAt: Date.now(),
+      state: currentState,
+    };
+    persist([entry, ...projects]);
+    setSaveName("");
+    setSaveMode(false);
+  };
+
+  const handleDelete = (id) => {
+    persist(projects.filter(p => p.id !== id));
+    setDeleteConfirm(null);
+  };
+
+  const handleOverwrite = (id) => {
+    const updated = projects.map(p => p.id === id ? { ...p, savedAt: Date.now(), state: currentState } : p);
+    persist(updated);
+    setSaveMode(false);
+  };
+
+  return (
+    <div style={{
+      width: 220, flexShrink: 0, background: "#080808", borderRight: "1px solid #111",
+      display: "flex", flexDirection: "column", height: "100%", overflow: "hidden",
+    }}>
+      {/* Header */}
+      <div style={{ padding: "16px 16px 12px", borderBottom: "1px solid #111" }}>
+        <div style={{ fontSize: 8, letterSpacing: 3, color: "#333", fontWeight: 700, marginBottom: 10 }}>SAVED PROJECTS</div>
+        {!saveMode ? (
+          <button onClick={() => { setSaveMode(true); setSaveName(currentState.projectName || ""); }}
+            style={{ width: "100%", padding: "7px 0", background: "transparent", border: "1.5px dashed #222", color: "#444", fontSize: 10, letterSpacing: 1, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", borderRadius: 3, cursor: "pointer", transition: "all 0.15s" }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = "#E31937"; e.currentTarget.style.color = "#E31937"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = "#222"; e.currentTarget.style.color = "#444"; }}>
+            + SAVE CURRENT
+          </button>
+        ) : (
+          <div>
+            <input autoFocus value={saveName} onChange={e => setSaveName(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") handleSave(); if (e.key === "Escape") setSaveMode(false); }}
+              placeholder="Project name…"
+              style={{ width: "100%", background: "#0e0e0e", border: "1.5px solid #E31937", color: "#ddd", fontFamily: "'DM Sans', sans-serif", fontSize: 11, padding: "7px 10px", borderRadius: 4, outline: "none", boxSizing: "border-box", marginBottom: 6 }} />
+            <div style={{ display: "flex", gap: 4 }}>
+              <button onClick={handleSave} style={{ flex: 1, padding: "5px 0", background: "#E31937", border: "none", color: "#fff", fontSize: 9, letterSpacing: 1, fontWeight: 700, borderRadius: 3, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>SAVE</button>
+              <button onClick={() => setSaveMode(false)} style={{ padding: "5px 8px", background: "none", border: "1px solid #222", color: "#555", fontSize: 9, borderRadius: 3, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>✕</button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Project list */}
+      <div style={{ flex: 1, overflow: "auto" }}>
+        {projects.length === 0 ? (
+          <div style={{ padding: "24px 16px", textAlign: "center", color: "#2a2a2a", fontSize: 11, lineHeight: 1.6 }}>
+            No saved projects yet.<br />Save your current setup to access it here.
+          </div>
+        ) : (
+          projects.map(p => (
+            <div key={p.id} style={{ borderBottom: "1px solid #0f0f0f" }}>
+              {deleteConfirm === p.id ? (
+                <div style={{ padding: "10px 12px", background: "#0f0a0a" }}>
+                  <div style={{ fontSize: 10, color: "#E31937", marginBottom: 8 }}>Delete "{p.name}"?</div>
+                  <div style={{ display: "flex", gap: 4 }}>
+                    <button onClick={() => handleDelete(p.id)} style={{ flex: 1, padding: "4px 0", background: "#E31937", border: "none", color: "#fff", fontSize: 9, fontWeight: 700, borderRadius: 3, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>DELETE</button>
+                    <button onClick={() => setDeleteConfirm(null)} style={{ padding: "4px 8px", background: "none", border: "1px solid #222", color: "#555", fontSize: 9, borderRadius: 3, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>CANCEL</button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ padding: "10px 12px", cursor: "pointer", transition: "background 0.1s" }}
+                  onMouseEnter={e => e.currentTarget.style.background = "#0d0d0d"}
+                  onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                  onClick={() => onLoad(p.state)}>
+                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 4 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 11, color: "#ccc", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
+                      <div style={{ fontSize: 9, color: "#333", marginTop: 2 }}>{fmtShort(p.savedAt)}</div>
+                      {p.state.projectName && p.state.projectName !== p.name && (
+                        <div style={{ fontSize: 9, color: "#2a2a2a", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.state.projectName}</div>
+                      )}
+                    </div>
+                    <button onClick={e => { e.stopPropagation(); setDeleteConfirm(p.id); }}
+                      style={{ background: "none", border: "none", color: "#2a2a2a", cursor: "pointer", fontSize: 13, padding: "0 2px", flexShrink: 0, lineHeight: 1 }}
+                      onMouseEnter={e => e.currentTarget.style.color = "#E31937"}
+                      onMouseLeave={e => e.currentTarget.style.color = "#2a2a2a"}>×</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Footer version */}
+      <div style={{ padding: "8px 16px", borderTop: "1px solid #0f0f0f" }}>
+        <span style={{ fontSize: 8, letterSpacing: 2, color: "#1e1e1e" }}>v2.0.0</span>
+      </div>
+    </div>
+  );
+}
+
+// ── OWNER HELPERS ──────────────────────────────────────────────────────────
 
 function NewOwnerInline({ onSave, onCancel, inputStyle }) {
   const [label, setLabel] = useState("");
@@ -106,12 +434,7 @@ function NewOwnerInline({ onSave, onCancel, inputStyle }) {
             border: color === c ? "2px solid #fff" : "2px solid transparent", boxShadow: color === c ? `0 0 0 1px ${c}` : "none" }} />
         ))}
       </div>
-      {label && (
-        <div style={{ marginBottom: 8, display: "inline-flex", alignItems: "center", gap: 5, padding: "2px 8px", borderRadius: 3, background: color + "18", border: `1px solid ${color}40` }}>
-          <div style={{ width: 6, height: 6, borderRadius: 2, background: color }} />
-          <span style={{ fontSize: 10, color }}>{label}</span>
-        </div>
-      )}
+      {label && <div style={{ marginBottom: 8, display: "inline-flex", alignItems: "center", gap: 5, padding: "2px 8px", borderRadius: 3, background: color + "18", border: `1px solid ${color}40` }}><div style={{ width: 6, height: 6, borderRadius: 2, background: color }} /><span style={{ fontSize: 10, color }}>{label}</span></div>}
       {err && <div style={{ fontSize: 9, color: "#E31937", marginBottom: 6 }}>{err}</div>}
       <div style={{ display: "flex", gap: 5 }}>
         <button onClick={handleSave} style={{ flex: 1, padding: "5px 0", background: "#E31937", border: "none", color: "#fff", fontSize: 9, letterSpacing: 1, fontWeight: 700, borderRadius: 3, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>CREATE</button>
@@ -123,25 +446,14 @@ function NewOwnerInline({ onSave, onCancel, inputStyle }) {
 
 function OwnerSelect({ value, onChange, owners, onAddOwner, inputStyle }) {
   const [adding, setAdding] = useState(false);
-  if (adding) {
-    return <NewOwnerInline inputStyle={inputStyle}
-      onSave={(id, def) => { onAddOwner(id, def); onChange(id); setAdding(false); }}
-      onCancel={() => setAdding(false)} />;
-  }
+  if (adding) return <NewOwnerInline inputStyle={inputStyle} onSave={(id, def) => { onAddOwner(id, def); onChange(id); setAdding(false); }} onCancel={() => setAdding(false)} />;
   const builtins = Object.entries(owners).filter(([,v]) => v.builtin);
   const customs  = Object.entries(owners).filter(([,v]) => !v.builtin);
   return (
     <div style={{ position: "relative" }}>
-      <select value={value} onChange={e => e.target.value === "__add__" ? setAdding(true) : onChange(e.target.value)}
-        style={{ ...inputStyle, appearance: "none", cursor: "pointer", paddingRight: 22 }}>
-        <optgroup label="── Built-in ──">
-          {builtins.map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-        </optgroup>
-        {customs.length > 0 && (
-          <optgroup label="── Custom ──">
-            {customs.map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-          </optgroup>
-        )}
+      <select value={value} onChange={e => e.target.value === "__add__" ? setAdding(true) : onChange(e.target.value)} style={{ ...inputStyle, appearance: "none", cursor: "pointer", paddingRight: 22 }}>
+        <optgroup label="── Built-in ──">{builtins.map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</optgroup>
+        {customs.length > 0 && <optgroup label="── Custom ──">{customs.map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</optgroup>}
         <option value="__add__">＋ Add new owner…</option>
       </select>
       <span style={{ position: "absolute", right: 7, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", fontSize: 9, color: "#555" }}>▾</span>
@@ -159,45 +471,29 @@ function ManageOwners({ owners, onAddOwner, onDeleteOwner }) {
       <div style={{ marginBottom: 12 }}>
         <div style={{ fontSize: 8, letterSpacing: 2, color: "#2a2a2a", marginBottom: 8 }}>BUILT-IN</div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {builtins.map(([k, v]) => (
-            <div key={k} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 3, background: v.color + "12", border: `1px solid ${v.color}28` }}>
-              <div style={{ width: 7, height: 7, borderRadius: 2, background: v.color, flexShrink: 0 }} />
-              <span style={{ fontSize: 11, color: v.color }}>{v.label}</span>
-            </div>
-          ))}
+          {builtins.map(([k, v]) => (<div key={k} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 3, background: v.color + "12", border: `1px solid ${v.color}28` }}><div style={{ width: 7, height: 7, borderRadius: 2, background: v.color, flexShrink: 0 }} /><span style={{ fontSize: 11, color: v.color }}>{v.label}</span></div>))}
         </div>
       </div>
       {customs.length > 0 && (
         <div style={{ marginBottom: 12 }}>
           <div style={{ fontSize: 8, letterSpacing: 2, color: "#2a2a2a", marginBottom: 8 }}>CUSTOM</div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            {customs.map(([k, v]) => (
-              <div key={k} style={{ display: "flex", alignItems: "center" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", background: v.color + "12", border: `1px solid ${v.color}38`, borderRight: "none", borderRadius: "3px 0 0 3px" }}>
-                  <div style={{ width: 7, height: 7, borderRadius: 2, background: v.color, flexShrink: 0 }} />
-                  <span style={{ fontSize: 11, color: v.color }}>{v.label}</span>
-                </div>
-                <button onClick={() => onDeleteOwner(k)} title="Remove owner" style={{ padding: "4px 8px", background: v.color + "12", border: `1px solid ${v.color}38`, borderLeft: "none", color: v.color, borderRadius: "0 3px 3px 0", cursor: "pointer", fontSize: 11, lineHeight: 1 }}>×</button>
-              </div>
-            ))}
+            {customs.map(([k, v]) => (<div key={k} style={{ display: "flex", alignItems: "center" }}><div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", background: v.color + "12", border: `1px solid ${v.color}38`, borderRight: "none", borderRadius: "3px 0 0 3px" }}><div style={{ width: 7, height: 7, borderRadius: 2, background: v.color, flexShrink: 0 }} /><span style={{ fontSize: 11, color: v.color }}>{v.label}</span></div><button onClick={() => onDeleteOwner(k)} title="Remove owner" style={{ padding: "4px 8px", background: v.color + "12", border: `1px solid ${v.color}38`, borderLeft: "none", color: v.color, borderRadius: "0 3px 3px 0", cursor: "pointer", fontSize: 11, lineHeight: 1 }}>×</button></div>))}
           </div>
         </div>
       )}
       {adding ? (
-        <NewOwnerInline inputStyle={inputStyle}
-          onSave={(id, def) => { onAddOwner(id, def); setAdding(false); }}
-          onCancel={() => setAdding(false)} />
+        <NewOwnerInline inputStyle={inputStyle} onSave={(id, def) => { onAddOwner(id, def); setAdding(false); }} onCancel={() => setAdding(false)} />
       ) : (
-        <button onClick={() => setAdding(true)}
-          style={{ padding: "7px 14px", background: "transparent", border: "1.5px dashed #252525", color: "#3a3a3a", fontSize: 10, letterSpacing: 1, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", borderRadius: 3, cursor: "pointer", transition: "all 0.15s" }}
+        <button onClick={() => setAdding(true)} style={{ padding: "7px 14px", background: "transparent", border: "1.5px dashed #252525", color: "#3a3a3a", fontSize: 10, letterSpacing: 1, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", borderRadius: 3, cursor: "pointer", transition: "all 0.15s" }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = "#E31937"; e.currentTarget.style.color = "#E31937"; }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = "#252525"; e.currentTarget.style.color = "#3a3a3a"; }}>
-          + ADD OWNER
-        </button>
+          onMouseLeave={e => { e.currentTarget.style.borderColor = "#252525"; e.currentTarget.style.color = "#3a3a3a"; }}>+ ADD OWNER</button>
       )}
     </div>
   );
 }
+
+// ── CUSTOM WORK TYPE MODAL ──────────────────────────────────────────────────
 
 function CustomWorkTypeModal({ onSave, onClose, owners, onAddOwner }) {
   const [label, setLabel]       = useState("");
@@ -223,45 +519,25 @@ function CustomWorkTypeModal({ onSave, onClose, owners, onAddOwner }) {
   const IS = { width: "100%", background: "#0a0a0a", border: "1.5px solid #1e1e1e", color: "#ddd", fontFamily: "'DM Sans', sans-serif", fontSize: 13, padding: "9px 12px", borderRadius: 4, outline: "none", boxSizing: "border-box" };
   const btn = (a) => ({ padding: "8px 18px", background: a ? "#E31937" : "#0e0e0e", border: `1.5px solid ${a ? "#E31937" : "#1e1e1e"}`, color: a ? "#fff" : "#888", fontSize: 11, letterSpacing: 2, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", borderRadius: 3, cursor: "pointer" });
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}
-      onClick={e => e.target === e.currentTarget && onClose()}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }} onClick={e => e.target === e.currentTarget && onClose()}>
       <div style={{ background: "#0e0e0e", border: "1px solid #222", borderRadius: 8, width: "100%", maxWidth: 580, maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 24px", borderBottom: "1px solid #151515" }}>
           <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 16, letterSpacing: 4, fontWeight: 700 }}>NEW WORK TYPE</span>
           <button onClick={onClose} style={{ background: "none", border: "1px solid #222", color: "#888", width: 28, height: 28, borderRadius: 3, cursor: "pointer", fontSize: 14 }}>×</button>
         </div>
         <div style={{ flex: 1, overflow: "auto", padding: 24 }}>
-          <div style={{ marginBottom: 20 }}>
-            <span style={{ fontSize: 9, letterSpacing: 3, color: "#555", textTransform: "uppercase", marginBottom: 8, display: "block", fontWeight: 600 }}>Work Type Name</span>
-            <input style={IS} placeholder="e.g. Paid Social, OOH, Retail" value={label} onChange={e => { setLabel(e.target.value); setError(""); }} />
-          </div>
+          <div style={{ marginBottom: 20 }}><span style={{ fontSize: 9, letterSpacing: 3, color: "#555", textTransform: "uppercase", marginBottom: 8, display: "block", fontWeight: 600 }}>Work Type Name</span><input style={IS} placeholder="e.g. Paid Social, OOH, Retail" value={label} onChange={e => { setLabel(e.target.value); setError(""); }} /></div>
           <div style={{ marginBottom: 24 }}>
             <span style={{ fontSize: 9, letterSpacing: 3, color: "#555", textTransform: "uppercase", marginBottom: 8, display: "block", fontWeight: 600 }}>Color</span>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {CUSTOM_COLORS.map((c, i) => (
-                <div key={i} onClick={() => setColorIdx(i)} style={{ width: 28, height: 28, borderRadius: 4, background: c.color, cursor: "pointer", border: colorIdx === i ? "2px solid #fff" : "2px solid transparent", boxShadow: colorIdx === i ? `0 0 0 1px ${c.color}` : "none", transition: "all 0.15s" }} />
-              ))}
-            </div>
-            {label && (
-              <div style={{ marginTop: 10, display: "inline-flex", alignItems: "center", padding: "5px 12px", borderRadius: 3, background: CUSTOM_COLORS[colorIdx].light, border: `1px solid ${CUSTOM_COLORS[colorIdx].color}` }}>
-                <span style={{ fontSize: 11, color: CUSTOM_COLORS[colorIdx].color, fontWeight: 700, letterSpacing: 1 }}>{label}</span>
-              </div>
-            )}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{CUSTOM_COLORS.map((c, i) => (<div key={i} onClick={() => setColorIdx(i)} style={{ width: 28, height: 28, borderRadius: 4, background: c.color, cursor: "pointer", border: colorIdx === i ? "2px solid #fff" : "2px solid transparent", boxShadow: colorIdx === i ? `0 0 0 1px ${c.color}` : "none", transition: "all 0.15s" }} />))}</div>
+            {label && <div style={{ marginTop: 10, display: "inline-flex", alignItems: "center", padding: "5px 12px", borderRadius: 3, background: CUSTOM_COLORS[colorIdx].light, border: `1px solid ${CUSTOM_COLORS[colorIdx].color}` }}><span style={{ fontSize: 11, color: CUSTOM_COLORS[colorIdx].color, fontWeight: 700, letterSpacing: 1 }}>{label}</span></div>}
           </div>
           <div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-              <span style={{ fontSize: 9, letterSpacing: 3, color: "#555", textTransform: "uppercase", fontWeight: 600 }}>Phases</span>
-              <button onClick={addPhase} style={{ ...btn(false), fontSize: 10, padding: "5px 12px" }}>+ ADD PHASE</button>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 190px 52px 28px", gap: 6, marginBottom: 6 }}>
-              {["PHASE NAME","OWNER","DAYS",""].map((h,i) => <span key={i} style={{ fontSize: 8, letterSpacing: 2, color: "#444" }}>{h}</span>)}
-            </div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}><span style={{ fontSize: 9, letterSpacing: 3, color: "#555", textTransform: "uppercase", fontWeight: 600 }}>Phases</span><button onClick={addPhase} style={{ ...btn(false), fontSize: 10, padding: "5px 12px" }}>+ ADD PHASE</button></div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 190px 52px 28px", gap: 6, marginBottom: 6 }}>{["PHASE NAME","OWNER","DAYS",""].map((h,i) => <span key={i} style={{ fontSize: 8, letterSpacing: 2, color: "#444" }}>{h}</span>)}</div>
             {phases.map((p, i) => (
               <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 190px 52px 28px", gap: 6, marginBottom: 6, alignItems: "start" }}>
-                <div style={{ position: "relative" }}>
-                  <input style={{ ...IS, paddingRight: p.milestone ? 72 : 12 }} placeholder="Phase name" value={p.name} onChange={e => updPhase(i, "name", e.target.value)} />
-                  {p.milestone && <span style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", fontSize: 7, letterSpacing: 1, color: "#E31937", fontWeight: 700, pointerEvents: "none" }}>MILESTONE</span>}
-                </div>
+                <div style={{ position: "relative" }}><input style={{ ...IS, paddingRight: p.milestone ? 72 : 12 }} placeholder="Phase name" value={p.name} onChange={e => updPhase(i, "name", e.target.value)} />{p.milestone && <span style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", fontSize: 7, letterSpacing: 1, color: "#E31937", fontWeight: 700, pointerEvents: "none" }}>MILESTONE</span>}</div>
                 <OwnerSelect value={p.owner} onChange={v => updPhase(i, "owner", v)} owners={owners} onAddOwner={onAddOwner} inputStyle={{ ...IS, padding: "9px 8px" }} />
                 <input type="number" min={1} value={p.duration} onChange={e => updPhase(i, "duration", e.target.value)} style={{ ...IS, padding: "9px 8px", textAlign: "center" }} />
                 <button onClick={() => removePhase(i)} style={{ background: "none", border: "1px solid #1a1a1a", color: "#555", width: 28, height: 36, borderRadius: 3, cursor: "pointer", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
@@ -271,52 +547,94 @@ function CustomWorkTypeModal({ onSave, onClose, owners, onAddOwner }) {
           </div>
           {error && <div style={{ marginTop: 12, fontSize: 11, color: "#E31937" }}>{error}</div>}
         </div>
-        <div style={{ padding: "14px 24px", borderTop: "1px solid #151515", display: "flex", gap: 8, justifyContent: "flex-end" }}>
-          <button onClick={onClose} style={btn(false)}>CANCEL</button>
-          <button onClick={handleSave} style={btn(true)}>CREATE WORK TYPE</button>
-        </div>
+        <div style={{ padding: "14px 24px", borderTop: "1px solid #151515", display: "flex", gap: 8, justifyContent: "flex-end" }}><button onClick={onClose} style={btn(false)}>CANCEL</button><button onClick={handleSave} style={btn(true)}>CREATE WORK TYPE</button></div>
       </div>
     </div>
   );
 }
 
+// ── LOCALE LABEL HELPER ────────────────────────────────────────────────────
+
+function getTranslationLabel(tier, customLocales) {
+  if (tier === "none") return "US Only";
+  if (tier === "tier1") return `Tier 1 (${TIER1_CODES.length} locales)`;
+  if (tier === "worldwide") return `Worldwide (${WORLDWIDE_CODES.length} locales)`;
+  if (tier === "custom") return `Custom (${customLocales.length} locales)`;
+  return "";
+}
+
+// ── MAIN COMPONENT ──────────────────────────────────────────────────────────
+
+const INITIAL_STATE = () => ({
+  projectName:     "",
+  projectType:     "npi",
+  direction:       "backward",
+  targetDate:      "2026-06-15",
+  workTypes:       { email: true, pdp: false, plp: false, hp: false },
+  customWorkTypes: [],
+  owners:          DEFAULT_OWNERS,
+  translationTier: "worldwide",
+  customLocales:   WORLDWIDE_CODES,
+  fastFollows:     [],
+  phases:          {},
+});
+
 export default function WorkbackBuilder() {
-  const [view,            setView]            = useState("setup");
-  const [projectName,     setProjectName]     = useState("");
-  const [projectType,     setProjectType]     = useState("npi");
-  const [direction,       setDirection]       = useState("backward");
-  const [targetDate,      setTargetDate]      = useState("2026-06-15");
-  const [workTypes,       setWorkTypes]       = useState({ email: true, pdp: false, plp: false, hp: false });
-  const [customWorkTypes, setCustomWorkTypes] = useState([]);
-  const [owners,          setOwners]          = useState(DEFAULT_OWNERS);
-  const [translationsOn,  setTranslationsOn]  = useState(true);
-  const [fastFollows,     setFastFollows]     = useState([]);
-  const [phases,          setPhases]          = useState({});
-  const [schedule,        setSchedule]        = useState(null);
-  const [activeTab,       setActiveTab]       = useState("email");
+  const [state, setState]         = useState(INITIAL_STATE());
+  const [view, setView]           = useState("setup");
+  const [activeTab, setActiveTab] = useState("email");
+  const [schedule, setSchedule]   = useState(null);
   const [showCustomModal, setShowCustomModal] = useState(false);
   const ganttRef = useRef(null);
-  const allWorkTypes = [...BUILT_IN_WORK_TYPES, ...customWorkTypes];
-  const addOwner    = useCallback((id, def) => setOwners(prev => ({ ...prev, [id]: def })), []);
+
+  const { projectName, projectType, direction, targetDate, workTypes,
+          customWorkTypes, owners, translationTier, customLocales, fastFollows, phases } = state;
+
+  const set = (key, val) => setState(prev => ({ ...prev, [key]: val }));
+  const setPhases = (fn) => setState(prev => ({ ...prev, phases: typeof fn === "function" ? fn(prev.phases) : fn }));
+
+  const translationsOn = translationTier !== "none";
+  const allWorkTypes   = [...BUILT_IN_WORK_TYPES, ...customWorkTypes];
+
+  // Snapshot for saving
+  const currentSnapshot = { ...state };
+
+  const loadProject = (savedState) => {
+    setState({ ...INITIAL_STATE(), ...savedState });
+    setView("setup");
+    setSchedule(null);
+    const first = [...BUILT_IN_WORK_TYPES, ...(savedState.customWorkTypes || [])].find(wt => savedState.workTypes?.[wt.id]);
+    setActiveTab(first?.id || "email");
+  };
+
+  const addOwner = useCallback((id, def) => set("owners", { ...owners, [id]: def }), [owners]);
   const deleteOwner = useCallback((id) => {
-    setOwners(prev => { const n = { ...prev }; delete n[id]; return n; });
-    setPhases(prev => { const n = { ...prev }; Object.keys(n).forEach(wt => { n[wt] = n[wt].map(p => p.owner === id ? { ...p, owner: "ops" } : p); }); return n; });
-  }, []);
+    const n = { ...owners }; delete n[id];
+    set("owners", n);
+    setPhases(prev => { const np = { ...prev }; Object.keys(np).forEach(wt => { np[wt] = np[wt].map(p => p.owner === id ? { ...p, owner: "ops" } : p); }); return np; });
+  }, [owners]);
+
   const ownerInfo = (id) => owners[id] || { label: id, color: "#888" };
-  const toggleWorkType = (id) => setWorkTypes(prev => ({ ...prev, [id]: !prev[id] }));
+  const toggleWorkType = (id) => set("workTypes", { ...workTypes, [id]: !workTypes[id] });
+
   const deleteCustomWorkType = (id) => {
-    setCustomWorkTypes(prev => prev.filter(c => c.id !== id));
-    setWorkTypes(prev => { const n = {...prev}; delete n[id]; return n; });
-    setPhases(prev => { const n = {...prev}; delete n[id]; return n; });
+    set("customWorkTypes", customWorkTypes.filter(c => c.id !== id));
+    set("workTypes", (() => { const n = { ...workTypes }; delete n[id]; return n; })());
+    setPhases(prev => { const n = { ...prev }; delete n[id]; return n; });
     if (activeTab === id) setActiveTab("email");
   };
+
   const handleAddCustomWorkType = (wtDef) => {
-    setCustomWorkTypes(prev => [...prev, wtDef]);
-    setWorkTypes(prev => ({ ...prev, [wtDef.id]: true }));
-    setPhases(prev => ({ ...prev, [wtDef.id]: wtDef.phases }));
+    setState(prev => ({
+      ...prev,
+      customWorkTypes: [...prev.customWorkTypes, wtDef],
+      workTypes: { ...prev.workTypes, [wtDef.id]: true },
+      phases: { ...prev.phases, [wtDef.id]: wtDef.phases },
+    }));
     setActiveTab(wtDef.id);
     setShowCustomModal(false);
   };
+
   const initPhases = useCallback(() => {
     const np = {};
     allWorkTypes.forEach(({ id, custom }) => {
@@ -328,7 +646,11 @@ export default function WorkbackBuilder() {
     const first = allWorkTypes.find(wt => workTypes[wt.id]);
     if (first) setActiveTab(first.id);
   }, [workTypes, projectType, translationsOn, customWorkTypes]);
-  const updatePhase = (wt, idx, field, value) => { setPhases(prev => { const u = { ...prev }; u[wt] = [...u[wt]]; u[wt][idx] = { ...u[wt][idx], [field]: value }; return u; }); };
+
+  const updatePhase = (wt, idx, field, value) => {
+    setPhases(prev => { const u = { ...prev }; u[wt] = [...u[wt]]; u[wt][idx] = { ...u[wt][idx], [field]: value }; return u; });
+  };
+
   const calculateSchedule = () => {
     const result = {}, target = parseDate(targetDate);
     Object.entries(phases).forEach(([wt, pl]) => {
@@ -345,6 +667,7 @@ export default function WorkbackBuilder() {
     });
     setSchedule(result); setView("schedule");
   };
+
   const getDateRange = () => {
     if (!schedule) return { min: new Date(), max: new Date() };
     let min = new Date("2099-01-01"), max = new Date("2000-01-01");
@@ -353,55 +676,75 @@ export default function WorkbackBuilder() {
     min.setDate(min.getDate() - 3); max.setDate(max.getDate() + 3);
     return { min, max };
   };
+
+  const localeLabel = getTranslationLabel(translationTier, customLocales);
+
+  const activeLocales = translationTier === "custom" ? customLocales
+    : translationTier === "tier1" ? TIER1_CODES
+    : translationTier === "worldwide" ? WORLDWIDE_CODES : [];
+
   const exportTxt = () => {
     if (!schedule) return;
     const target = parseDate(targetDate);
-    let lines = [`WORKBACK SCHEDULE`, `Project: ${projectName || "Untitled"}`, `Type: ${projectType.toUpperCase()}`, `${direction === "backward" ? "Launch" : "Kick-off"}: ${fmtDisplay(target)}`, `Translations: ${translationsOn ? "ON" : "OFF"}`, ``];
+    let lines = [`SCHEDULE BUILDER`, `Project: ${projectName || "Untitled"}`, `Type: ${projectType.toUpperCase()}`, `${direction === "backward" ? "Launch" : "Kick-off"}: ${fmtDisplay(target)}`, `Translations: ${localeLabel}`, ``];
+    if (activeLocales.length > 0) { lines.push(`Locales: ${activeLocales.join(", ")}`); lines.push(""); }
     Object.entries(schedule).forEach(([wt, ps]) => { lines.push(`━━━ ${allWorkTypes.find(w => w.id === wt)?.label?.toUpperCase() || wt} ━━━`); ps.forEach(p => lines.push(`  ${fmtDisplay(p.start)} → ${fmtDisplay(p.end)} | ${p.name} | ${ownerInfo(p.owner).label} | T-${weeksBetween(p.start, target)}w`)); lines.push(""); });
     if (fastFollows.length) { lines.push("━━━ FAST-FOLLOWS ━━━"); fastFollows.forEach(ff => lines.push(`  ${ff.date} | ${ff.name}`)); }
     const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/plain" }));
     a.download = `${(projectName || "schedule").replace(/\s+/g, "-").toLowerCase()}-workback.txt`; a.click();
   };
+
   const exportCsv = () => {
     if (!schedule) return;
     const target = parseDate(targetDate);
     let rows = [["Work Type","Phase","Owner","Start","End","Biz Days","T-minus"]];
     Object.entries(schedule).forEach(([wt, ps]) => { const wtLabel = allWorkTypes.find(w => w.id === wt)?.label || wt; ps.forEach(p => rows.push([wtLabel, p.name, ownerInfo(p.owner).label, fmt(p.start), fmt(p.end), p.duration, `T-${weeksBetween(p.start, target)}`])); });
     if (fastFollows.length) fastFollows.forEach(ff => rows.push(["Fast-Follow", ff.name, "", ff.date, ff.date, "", ""]));
+    if (activeLocales.length > 0) { rows.push([]); rows.push(["Locales", ...activeLocales]); }
     const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([rows.map(r => r.map(c => `"${c}"`).join(",")).join("\n")], { type: "text/csv" }));
     a.download = `${(projectName || "schedule").replace(/\s+/g, "-").toLowerCase()}-workback.csv`; a.click();
   };
+
   const exportPdf = () => {
     const pw = window.open("", "_blank"), target = parseDate(targetDate);
-    let html = `<!DOCTYPE html><html><head><style>@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Barlow+Condensed:wght@400;600;700;800;900&display=swap');*{box-sizing:border-box;margin:0;padding:0}body{font-family:'DM Sans',sans-serif;background:#0a0a0a;color:#e0e0e0;padding:40px}h1{font-family:'Barlow Condensed',sans-serif;font-size:32px;letter-spacing:6px;font-weight:800;margin-bottom:4px}.meta{font-size:12px;color:#777;margin-bottom:30px}.wt{margin-bottom:32px}.wt-title{font-family:'Barlow Condensed',sans-serif;font-size:18px;letter-spacing:4px;font-weight:700;padding:8px 14px;border-radius:4px;display:inline-block;margin-bottom:12px}table{width:100%;border-collapse:collapse}th{text-align:left;font-size:9px;letter-spacing:2px;color:#666;padding:6px 10px;border-bottom:1px solid #222}td{font-size:12px;padding:7px 10px;border-bottom:1px solid #151515}.badge{font-size:9px;padding:2px 8px;border-radius:2px;letter-spacing:1px}@media print{body{background:#0a0a0a!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body><h1>${projectName || "UNTITLED PROJECT"}</h1><div class="meta">${projectType.toUpperCase()} · ${direction === "backward" ? "Launch" : "Kick-off"}: ${fmtDisplay(target)} · Translations: ${translationsOn ? "ON" : "US Only"}</div>`;
+    let html = `<!DOCTYPE html><html><head><style>@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Barlow+Condensed:wght@400;600;700;800;900&display=swap');*{box-sizing:border-box;margin:0;padding:0}body{font-family:'DM Sans',sans-serif;background:#0a0a0a;color:#e0e0e0;padding:40px}h1{font-family:'Barlow Condensed',sans-serif;font-size:32px;letter-spacing:6px;font-weight:800;margin-bottom:4px}.meta{font-size:12px;color:#777;margin-bottom:8px}.locales{font-size:11px;color:#444;margin-bottom:24px;line-height:1.8}.wt{margin-bottom:32px}.wt-title{font-family:'Barlow Condensed',sans-serif;font-size:18px;letter-spacing:4px;font-weight:700;padding:8px 14px;border-radius:4px;display:inline-block;margin-bottom:12px}table{width:100%;border-collapse:collapse}th{text-align:left;font-size:9px;letter-spacing:2px;color:#666;padding:6px 10px;border-bottom:1px solid #222}td{font-size:12px;padding:7px 10px;border-bottom:1px solid #151515}.badge{font-size:9px;padding:2px 8px;border-radius:2px;letter-spacing:1px}@media print{body{background:#0a0a0a!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>`;
+    html += `<h1>${projectName || "UNTITLED PROJECT"}</h1><div class="meta">${projectType.toUpperCase()} · ${direction === "backward" ? "Launch" : "Kick-off"}: ${fmtDisplay(target)} · ${localeLabel}</div>`;
+    if (activeLocales.length > 0) {
+      const flags = activeLocales.map(c => ALL_LOCALES.find(l => l.code === c)?.flag || c).join(" ");
+      html += `<div class="locales">${flags}</div>`;
+    }
     Object.entries(schedule).forEach(([wt, ps]) => { const wi = allWorkTypes.find(w => w.id === wt) || { color: "#888", light: "rgba(136,136,136,0.15)", label: wt }; html += `<div class="wt"><div class="wt-title" style="background:${wi.light};color:${wi.color}">${wi.label}</div><table><tr><th>Phase</th><th>Owner</th><th>Start</th><th>End</th><th>Days</th><th>T-minus</th></tr>`; ps.forEach(p => { const tW = weeksBetween(p.start, target), ow = ownerInfo(p.owner); html += `<tr><td>${p.name}</td><td><span class="badge" style="background:${ow.color}22;color:${ow.color}">${ow.label}</span></td><td>${fmtDisplay(p.start)}</td><td>${fmtDisplay(p.end)}</td><td>${p.duration}</td><td style="color:#E31937;font-weight:600">T-${tW}w</td></tr>`; }); html += `</table></div>`; });
     if (fastFollows.length) { html += `<div style="margin-top:20px;border-top:1px solid #222;padding-top:16px"><div class="wt-title" style="background:rgba(227,25,55,0.15);color:#E31937">FAST-FOLLOWS</div><table>`; fastFollows.forEach(ff => { html += `<tr><td>${ff.name}</td><td>${ff.date}</td><td style="color:#E31937">T+${weeksBetween(parseDate(ff.date), target)}w</td></tr>`; }); html += `</table></div>`; }
     html += `</body></html>`; pw.document.write(html); pw.document.close(); setTimeout(() => pw.print(), 500);
   };
+
+  // ── STYLES ─────────────────────────────────────────────────────────────────
   const S = {
-    app:    { display: "flex", flexDirection: "column", height: "100vh", background: "#060606", color: "#e8e8e8", fontFamily: "'DM Sans', sans-serif", overflow: "hidden" },
-    header: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 24px", borderBottom: "1px solid #151515", flexShrink: 0 },
-    badge:  { fontSize: 9, letterSpacing: 2, padding: "3px 10px", borderRadius: 2, background: "rgba(227,25,55,0.15)", color: "#E31937" },
-    main:   { flex: 1, overflow: "auto", padding: "24px" },
-    lbl:    { fontSize: 9, letterSpacing: 3, color: "#555", textTransform: "uppercase", marginBottom: 8, display: "block", fontWeight: 600 },
-    input:  { width: "100%", background: "#0e0e0e", border: "1.5px solid #1e1e1e", color: "#ddd", fontFamily: "'DM Sans', sans-serif", fontSize: 13, padding: "10px 14px", borderRadius: 4, outline: "none", boxSizing: "border-box" },
-    btn:    (a) => ({ padding: "8px 18px", background: a ? "#E31937" : "#0e0e0e", border: `1.5px solid ${a ? "#E31937" : "#1e1e1e"}`, color: a ? "#fff" : "#888", fontSize: 11, letterSpacing: 2, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", borderRadius: 3, cursor: "pointer", transition: "all 0.15s" }),
-    pill:   (a, c) => ({ padding: "8px 16px", background: a ? (c||"#E31937")+"22" : "#0e0e0e", border: `1.5px solid ${a ? (c||"#E31937") : "#1e1e1e"}`, color: a ? (c||"#E31937") : "#555", fontSize: 11, letterSpacing: 1, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", borderRadius: 3, cursor: "pointer", transition: "all 0.15s" }),
-    card:   { background: "#0a0a0a", border: "1px solid #151515", borderRadius: 6, padding: "20px", marginBottom: 16 },
-    sec:    { marginBottom: 24 },
+    input: { width: "100%", background: "#0e0e0e", border: "1.5px solid #1e1e1e", color: "#ddd", fontFamily: "'DM Sans', sans-serif", fontSize: 13, padding: "10px 14px", borderRadius: 4, outline: "none", boxSizing: "border-box" },
+    btn:   (a) => ({ padding: "8px 18px", background: a ? "#E31937" : "#0e0e0e", border: `1.5px solid ${a ? "#E31937" : "#1e1e1e"}`, color: a ? "#fff" : "#888", fontSize: 11, letterSpacing: 2, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", borderRadius: 3, cursor: "pointer", transition: "all 0.15s" }),
+    pill:  (a, c) => ({ padding: "8px 16px", background: a ? (c||"#E31937")+"22" : "#0e0e0e", border: `1.5px solid ${a ? (c||"#E31937") : "#1e1e1e"}`, color: a ? (c||"#E31937") : "#555", fontSize: 11, letterSpacing: 1, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", borderRadius: 3, cursor: "pointer", transition: "all 0.15s" }),
+    card:  { background: "#0a0a0a", border: "1px solid #151515", borderRadius: 6, padding: "20px", marginBottom: 16 },
+    lbl:   { fontSize: 9, letterSpacing: 3, color: "#555", textTransform: "uppercase", marginBottom: 8, display: "block", fontWeight: 600 },
+    sec:   { marginBottom: 24 },
   };
+
   const enabledCount = Object.values(workTypes).filter(Boolean).length;
+
+  // ── SETUP VIEW ─────────────────────────────────────────────────────────────
   const renderSetup = () => (
     <div style={{ maxWidth: 720, margin: "0 auto" }}>
       <div style={{ textAlign: "center", marginBottom: 32 }}>
-        <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 28, letterSpacing: 8, fontWeight: 800, marginBottom: 6 }}>WORKBACK SCHEDULE BUILDER</div>
+        <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 28, letterSpacing: 8, fontWeight: 800, marginBottom: 6 }}>SCHEDULE BUILDER</div>
         <div style={{ fontSize: 12, color: "#444" }}>Configure your project, then generate your schedule</div>
       </div>
+
       <div style={S.card}>
-        <div style={S.sec}><span style={S.lbl}>Project Name</span><input style={S.input} placeholder="e.g. Global Launch for XYZ" value={projectName} onChange={e => setProjectName(e.target.value)} /></div>
-        <div style={S.sec}><span style={S.lbl}>Project Type</span><div style={{ display: "flex", gap: 8 }}>{[["npi","NPI"],["non-npi","Non-NPI (Misc)"]].map(([id,lbl]) => (<button key={id} onClick={() => setProjectType(id)} style={S.btn(projectType === id)}>{lbl}</button>))}</div></div>
-        <div style={S.sec}><span style={S.lbl}>Schedule Direction</span><div style={{ display: "flex", gap: 8 }}>{[["backward","← Backward from Launch"],["forward","Forward from Kick-off →"]].map(([id,lbl]) => (<button key={id} onClick={() => setDirection(id)} style={S.btn(direction === id)}>{lbl}</button>))}</div></div>
-        <div style={S.sec}><span style={S.lbl}>{direction === "backward" ? "Launch Date" : "Kick-off Date"}</span><input type="date" style={S.input} value={targetDate} onChange={e => setTargetDate(e.target.value)} /></div>
+        <div style={S.sec}><span style={S.lbl}>Project Name</span><input style={S.input} placeholder="e.g. Global Launch for XYZ" value={projectName} onChange={e => set("projectName", e.target.value)} /></div>
+        <div style={S.sec}><span style={S.lbl}>Project Type</span><div style={{ display: "flex", gap: 8 }}>{[["npi","NPI"],["non-npi","Non-NPI (Misc)"]].map(([id,lbl]) => (<button key={id} onClick={() => set("projectType", id)} style={S.btn(projectType === id)}>{lbl}</button>))}</div></div>
+        <div style={S.sec}><span style={S.lbl}>Schedule Direction</span><div style={{ display: "flex", gap: 8 }}>{[["backward","← Backward from Launch"],["forward","Forward from Kick-off →"]].map(([id,lbl]) => (<button key={id} onClick={() => set("direction", id)} style={S.btn(direction === id)}>{lbl}</button>))}</div></div>
+        <div style={S.sec}><span style={S.lbl}>{direction === "backward" ? "Launch Date" : "Kick-off Date"}</span><input type="date" style={S.input} value={targetDate} onChange={e => set("targetDate", e.target.value)} /></div>
+
+        {/* Work Types */}
         <div style={S.sec}>
           <span style={S.lbl}>Work Types</span>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
@@ -417,23 +760,39 @@ export default function WorkbackBuilder() {
               onMouseLeave={e => { e.currentTarget.style.borderColor="#2a2a2a"; e.currentTarget.style.color="#444"; }}>+ CUSTOM</button>
           </div>
         </div>
-        <div style={S.sec}><span style={S.lbl}>Translations</span><div style={{ display: "flex", gap: 8 }}><button onClick={() => setTranslationsOn(true)} style={S.pill(translationsOn,"#A855F7")}>ON — 16 Languages / 27 Locales</button><button onClick={() => setTranslationsOn(false)} style={S.pill(!translationsOn,"#666")}>US Only</button></div></div>
+
+        {/* Translations — new tier selector */}
+        <div style={S.sec}>
+          <span style={S.lbl}>Translations</span>
+          <TranslationTierSelector
+            value={translationTier}
+            customLocales={customLocales}
+            onChange={tier => set("translationTier", tier)}
+            onCustomLocales={codes => set("customLocales", codes)}
+          />
+        </div>
+
+        {/* Fast Follows */}
         <div style={S.sec}>
           <span style={S.lbl}>Post-Launch Fast-Follow Milestones</span>
           {fastFollows.map((ff, i) => (
             <div key={i} style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "center" }}>
-              <input style={{ ...S.input, flex: 1 }} placeholder="e.g. Buyability update" value={ff.name} onChange={e => { const nf = [...fastFollows]; nf[i] = { ...nf[i], name: e.target.value }; setFastFollows(nf); }} />
-              <input type="date" style={{ ...S.input, width: 170 }} value={ff.date} onChange={e => { const nf = [...fastFollows]; nf[i] = { ...nf[i], date: e.target.value }; setFastFollows(nf); }} />
-              <button onClick={() => setFastFollows(f2 => f2.filter((_,j) => j !== i))} style={{ background: "none", border: "1px solid #2a1015", color: "#E31937", width: 28, height: 28, borderRadius: 3, cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+              <input style={{ ...S.input, flex: 1 }} placeholder="e.g. Buyability update" value={ff.name} onChange={e => { const nf = [...fastFollows]; nf[i] = { ...nf[i], name: e.target.value }; set("fastFollows", nf); }} />
+              <input type="date" style={{ ...S.input, width: 170 }} value={ff.date} onChange={e => { const nf = [...fastFollows]; nf[i] = { ...nf[i], date: e.target.value }; set("fastFollows", nf); }} />
+              <button onClick={() => set("fastFollows", fastFollows.filter((_,j) => j !== i))} style={{ background: "none", border: "1px solid #2a1015", color: "#E31937", width: 28, height: 28, borderRadius: 3, cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
             </div>
           ))}
-          <button onClick={() => setFastFollows(f => [...f, { name: "", date: targetDate }])} style={{ ...S.btn(false), fontSize: 10, padding: "6px 14px" }}>+ Add Fast-Follow</button>
+          <button onClick={() => set("fastFollows", [...fastFollows, { name: "", date: targetDate }])} style={{ ...S.btn(false), fontSize: 10, padding: "6px 14px" }}>+ Add Fast-Follow</button>
         </div>
       </div>
+
+      {/* Owners */}
       <div style={S.card}>
         <div style={{ display: "flex", alignItems: "center", marginBottom: 14 }}><span style={{ ...S.lbl, marginBottom: 0 }}>Owners / Assignees</span></div>
         <ManageOwners owners={owners} onAddOwner={addOwner} onDeleteOwner={deleteOwner} />
       </div>
+
+      {/* Phase Configuration */}
       {enabledCount > 0 && (
         <div style={S.card}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
@@ -485,12 +844,15 @@ export default function WorkbackBuilder() {
           )}
         </div>
       )}
+
       <button onClick={calculateSchedule} disabled={enabledCount === 0 || Object.keys(phases).length === 0}
         style={{ width: "100%", padding: "18px", background: enabledCount > 0 && Object.keys(phases).length > 0 ? "linear-gradient(135deg, #E31937 0%, #aa0020 100%)" : "#1a0a0a", color: enabledCount > 0 && Object.keys(phases).length > 0 ? "#fff" : "#550010", fontFamily: "'Barlow Condensed', sans-serif", fontSize: 18, letterSpacing: 6, fontWeight: 800, border: "none", borderRadius: 4, cursor: enabledCount > 0 ? "pointer" : "not-allowed", transition: "all 0.2s" }}>
         GENERATE SCHEDULE →
       </button>
     </div>
   );
+
+  // ── SCHEDULE VIEW ──────────────────────────────────────────────────────────
   const renderSchedule = () => {
     if (!schedule) return null;
     const target = parseDate(targetDate);
@@ -504,7 +866,7 @@ export default function WorkbackBuilder() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
           <div>
             <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, letterSpacing: 5, fontWeight: 700 }}>{projectName || "UNTITLED PROJECT"}</div>
-            <div style={{ fontSize: 11, color: "#555", marginTop: 2 }}>{projectType.toUpperCase()} · {direction === "backward" ? "Launch" : "Kick-off"}: {fmtDisplay(target)} · {translationsOn ? "16 Languages" : "US Only"}</div>
+            <div style={{ fontSize: 11, color: "#555", marginTop: 2 }}>{projectType.toUpperCase()} · {direction === "backward" ? "Launch" : "Kick-off"}: {fmtDisplay(target)} · {localeLabel}</div>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={() => setView("setup")} style={S.btn(false)}>← EDIT</button>
@@ -513,6 +875,15 @@ export default function WorkbackBuilder() {
             <button onClick={exportPdf} style={S.btn(true)}>PDF ↗</button>
           </div>
         </div>
+        {/* Locale flags row */}
+        {activeLocales.length > 0 && (
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 20, padding: "8px 12px", background: "#0a0a0a", border: "1px solid #151515", borderRadius: 4 }}>
+            {activeLocales.map(code => {
+              const loc = ALL_LOCALES.find(l => l.code === code);
+              return loc ? <span key={code} title={loc.label} style={{ fontSize: 18, lineHeight: 1 }}>{loc.flag}</span> : null;
+            })}
+          </div>
+        )}
         <div ref={ganttRef} style={{ background: "#0a0a0a", border: "1px solid #151515", borderRadius: 6, padding: "20px", overflow: "auto" }}>
           <div style={{ position: "relative", height: 24, marginLeft: 220, marginBottom: 4 }}>{weekMarkers.filter(w => w.pos > 0 && w.pos < 100).map((w, i) => (<div key={i} style={{ position: "absolute", left: `${w.pos}%`, transform: "translateX(-50%)", fontSize: 8, letterSpacing: 1, color: "#444", whiteSpace: "nowrap" }}>{w.tMinus}</div>))}</div>
           <div style={{ position: "relative", height: 20, marginLeft: 220, marginBottom: 8, borderBottom: "1px solid #151515" }}>{weekMarkers.filter((w,i) => i%2===0 && w.pos>0 && w.pos<100).map((w, i) => (<div key={i} style={{ position: "absolute", left: `${w.pos}%`, transform: "translateX(-50%)", fontSize: 9, color: "#333", whiteSpace: "nowrap" }}>{fmtDisplay(w.date).split(" ").slice(1).join(" ")}</div>))}</div>
@@ -578,15 +949,29 @@ export default function WorkbackBuilder() {
       </div>
     );
   };
+
+  // ── RENDER ─────────────────────────────────────────────────────────────────
   return (
-    <div style={S.app}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Barlow+Condensed:wght@400;600;700;800;900&display=swap');::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#1e1e1e;border-radius:2px}input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(0.7)}input[type="number"]::-webkit-inner-spin-button{opacity:1}input:focus{border-color:#E31937 !important;outline:none}select{color-scheme:dark}`}</style>
-      <div style={S.header}>
-        <div style={{ display: "flex", alignItems: "center" }}><span style={S.badge}>WORKBACK BUILDER</span></div>
-        {view === "schedule" && schedule && (<div style={{ fontSize: 10, color: "#444" }}>{Object.keys(schedule).length} work type{Object.keys(schedule).length !== 1 ? "s" : ""} · {Object.values(schedule).flat().length} phases</div>)}
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#060606", color: "#e8e8e8", fontFamily: "'DM Sans', sans-serif", overflow: "hidden" }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Barlow+Condensed:wght@400;600;700;800;900&display=swap');::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#1e1e1e;border-radius:2px}input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(0.7)}input[type="number"]::-webkit-inner-spin-button{opacity:1}input:focus{border-color:#E31937 !important;outline:none}select{color-scheme:dark}button:focus{outline:none}`}</style>
+
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 24px", borderBottom: "1px solid #111", flexShrink: 0, background: "#060606" }}>
+        <span style={{ fontSize: 9, letterSpacing: 2, padding: "3px 10px", borderRadius: 2, background: "rgba(227,25,55,0.15)", color: "#E31937" }}>SCHEDULE BUILDER</span>
+        {view === "schedule" && schedule && (
+          <div style={{ fontSize: 10, color: "#444" }}>{Object.keys(schedule).length} work type{Object.keys(schedule).length !== 1 ? "s" : ""} · {Object.values(schedule).flat().length} phases</div>
+        )}
       </div>
-      <div style={S.main}>{view === "setup" ? renderSetup() : renderSchedule()}</div>
-      {showCustomModal && (<CustomWorkTypeModal onSave={handleAddCustomWorkType} onClose={() => setShowCustomModal(false)} owners={owners} onAddOwner={addOwner} />)}
+
+      {/* Body: sidebar + main */}
+      <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+        <SavedProjectsSidebar onLoad={loadProject} currentState={currentSnapshot} />
+        <div style={{ flex: 1, overflow: "auto", padding: "24px" }}>
+          {view === "setup" ? renderSetup() : renderSchedule()}
+        </div>
+      </div>
+
+      {showCustomModal && <CustomWorkTypeModal onSave={handleAddCustomWorkType} onClose={() => setShowCustomModal(false)} owners={owners} onAddOwner={addOwner} />}
     </div>
   );
 }

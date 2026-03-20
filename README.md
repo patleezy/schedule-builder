@@ -39,3 +39,5 @@ Deployments → find last working → "..." → Promote to Production
 | Version | Notes |
 |---------|-------|
 | v1.0.0 | Initial deploy |
+
+| v2.0.0 | 2026-03 | Saved Projects sidebar, Translation tiers (US/Tier1/Worldwide/Custom), title cleanup |
