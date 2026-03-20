@@ -47,9 +47,20 @@ const TRANSLATION_TIERS = [
 // ── CONSTANTS ──────────────────────────────────────────────────────────────
 
 const HOLIDAYS_2026 = [
-  "2026-01-01","2026-01-19","2026-05-25","2026-06-19","2026-07-03","2026-09-07",
-  "2026-11-23","2026-11-24","2026-11-25","2026-11-26","2026-11-27",
-  "2026-12-24","2026-12-25","2026-12-26","2026-12-27","2026-12-28","2026-12-29","2026-12-30","2026-12-31",
+  "2026-01-01", // New Year's Day
+  "2026-01-19", // Martin Luther King Jr. Day
+  "2026-05-25", // Memorial Day
+  "2026-06-19", // Juneteenth
+  "2026-07-03", // Independence Day (observed)
+  "2026-09-07", // Labor Day
+  "2026-11-26", // Thanksgiving
+  "2026-11-27", // Day after Thanksgiving
+  "2026-12-24", // Christmas Eve
+  "2026-12-25", // Christmas Day
+  "2026-12-28", // Apple Holiday Shutdown
+  "2026-12-29", // Apple Holiday Shutdown
+  "2026-12-30", // Apple Holiday Shutdown
+  "2026-12-31", // New Year's Eve
 ];
 
 const BUILT_IN_WORK_TYPES = [
@@ -559,6 +570,64 @@ function AdjustmentNotes({ notes, onAdd, onRemove, inputStyle, btnStyle }) {
   );
 }
 
+// ── LOCALE INFO BAR ───────────────────────────────────────────────────────
+
+function LocaleInfoBar({ activeLocales, translationTier }) {
+  const [open, setOpen] = useState(false);
+  if (activeLocales.length === 0) return null;
+
+  const localeObjects = activeLocales.map(c => ALL_LOCALES.find(l => l.code === c)).filter(Boolean);
+  const uniqueLangs = new Set(localeObjects.map(l => l.code.split("-")[0]));
+  const langCount = uniqueLangs.size;
+
+  return (
+    <div style={{ position: "relative", marginBottom: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 12px", background: "#0a0a0a", border: "1px solid #151515", borderRadius: 5 }}>
+        {/* Flags — first 12 */}
+        <div style={{ display: "flex", gap: 3, flex: 1, flexWrap: "nowrap", overflow: "hidden" }}>
+          {localeObjects.slice(0, 14).map(loc => (
+            <span key={loc.code} title={loc.label} style={{ fontSize: 16, lineHeight: 1, flexShrink: 0 }}>{loc.flag}</span>
+          ))}
+          {localeObjects.length > 14 && (
+            <span style={{ fontSize: 10, color: "#555", alignSelf: "center", flexShrink: 0, marginLeft: 2 }}>+{localeObjects.length - 14}</span>
+          )}
+        </div>
+        {/* Summary + info button */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+          <span style={{ fontSize: 9, color: "#444", letterSpacing: 1, whiteSpace: "nowrap" }}>{activeLocales.length} locales · {langCount} languages</span>
+          <button
+            onClick={() => setOpen(o => !o)}
+            style={{ width: 20, height: 20, borderRadius: "50%", border: `1px solid ${open ? "#A855F7" : "#333"}`, background: open ? "rgba(168,85,247,0.15)" : "transparent", color: open ? "#A855F7" : "#555", fontSize: 10, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1, flexShrink: 0 }}
+          >i</button>
+        </div>
+      </div>
+
+      {/* Popover */}
+      {open && (
+        <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0, background: "#0e0e0e", border: "1px solid #222", borderRadius: 6, padding: 14, zIndex: 100, boxShadow: "0 8px 24px rgba(0,0,0,0.6)" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+            <span style={{ fontSize: 8, letterSpacing: 3, color: "#555", fontWeight: 700 }}>ACTIVE LOCALES</span>
+            <div style={{ display: "flex", gap: 10 }}>
+              <span style={{ fontSize: 10, color: "#A855F7" }}>{activeLocales.length} locales</span>
+              <span style={{ fontSize: 10, color: "#555" }}>·</span>
+              <span style={{ fontSize: 10, color: "#A855F7" }}>{langCount} languages</span>
+            </div>
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+            {localeObjects.map(loc => (
+              <div key={loc.code} style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 8px", borderRadius: 3, background: "#151515", border: "1px solid #1e1e1e" }}>
+                <span style={{ fontSize: 14, lineHeight: 1 }}>{loc.flag}</span>
+                <span style={{ fontSize: 9, color: "#888", letterSpacing: 0.5 }}>{loc.code}</span>
+                <span style={{ fontSize: 9, color: "#444" }}>{loc.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── LOCALE LABEL HELPER ────────────────────────────────────────────────────
 
 function getTranslationLabel(tier, customLocales) {
@@ -959,15 +1028,8 @@ export default function WorkbackBuilder() {
           </div>
         </div>
 
-        {/* Locale flags row */}
-        {activeLocales.length > 0 && (
-          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 12, padding: "6px 12px", background: "#0a0a0a", border: "1px solid #151515", borderRadius: 4 }}>
-            {activeLocales.map(code => {
-              const loc = ALL_LOCALES.find(l => l.code === code);
-              return loc ? <span key={code} title={loc.label} style={{ fontSize: Math.round(16*fs), lineHeight: 1 }}>{loc.flag}</span> : null;
-            })}
-          </div>
-        )}
+        {/* Locale info bar */}
+        <LocaleInfoBar activeLocales={activeLocales} translationTier={translationTier} />
 
         {/* Owner legend */}
         {usedOwnerIds.length > 0 && (
@@ -985,7 +1047,11 @@ export default function WorkbackBuilder() {
           </div>
         )}
 
-        {/* Gantt — horizontally scrollable with min-width */}
+        {/* Gantt Chart */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, marginTop: 4 }}>
+          <span style={{ fontSize: 8, letterSpacing: 3, color: "#444", fontWeight: 700 }}>GANTT CHART</span>
+          <div style={{ flex: 1, height: 1, background: "#151515" }} />
+        </div>
         <div ref={ganttRef} style={{ background: "#0a0a0a", border: "1px solid #151515", borderRadius: 6, padding: "16px", overflow: "auto" }}>
           <div style={{ minWidth: minGanttW }}>
           <div style={{ position: "relative", height: 24, marginLeft: labelW, marginBottom: 4 }}>{weekMarkers.filter(w => w.pos > 0 && w.pos < 100).map((w, i) => (<div key={i} style={{ position: "absolute", left: `${w.pos}%`, transform: "translateX(-50%)", fontSize: Math.round(9*fs), letterSpacing: 1, color: "#aaa", fontWeight: 700, whiteSpace: "nowrap" }}>{w.tMinus}</div>))}</div>
@@ -1037,7 +1103,12 @@ export default function WorkbackBuilder() {
           )}
           </div>{/* end minWidth wrapper */}
         </div>
-        <div style={{ marginTop: 24 }}>
+        {/* List View */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, marginTop: 28 }}>
+          <span style={{ fontSize: 8, letterSpacing: 3, color: "#444", fontWeight: 700 }}>LIST VIEW</span>
+          <div style={{ flex: 1, height: 1, background: "#151515" }} />
+        </div>
+        <div>
           {Object.entries(schedule).map(([wt, phaseList]) => {
             const wtInfo = allWorkTypes.find(w => w.id === wt) || { color: "#888", light: "rgba(136,136,136,0.15)", label: wt };
             const total = phaseList.reduce((s, p) => s + p.duration, 0);
@@ -1050,9 +1121,19 @@ export default function WorkbackBuilder() {
                 {phaseList.map((p, pi) => {
                   const ow = ownerInfo(p.owner); const tW = weeksBetween(p.start, target);
                   return (
-                    <div key={p.id||pi} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid #111" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ fontSize: 11.5, color: "#bbb" }}>{p.name}</span><span style={{ fontSize: 8, letterSpacing: 1, padding: "2px 6px", borderRadius: 2, background: ow.color+"15", color: ow.color }}>{ow.label}</span></div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 16 }}><span style={{ fontSize: 11, color: "#666" }}>{fmtDate(p.start)} → {fmtDate(p.end)}</span><span style={{ fontSize: 10, color: "#444", minWidth: 36, textAlign: "right" }}>{p.duration}d</span><span style={{ fontSize: 10, color: "#E31937", fontWeight: 600, minWidth: 44, textAlign: "right" }}>{p.start <= target ? `T-${tW}w` : `T+${tW}w`}</span></div>
+                    <div key={p.id||pi} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 0", borderBottom: "1px solid #111" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
+                        <div style={{ width: 3, alignSelf: "stretch", background: ow.color, borderRadius: 2, flexShrink: 0, opacity: 0.85 }} />
+                        <div style={{ minWidth: 0 }}>
+                          <span style={{ fontSize: 11.5, color: "#ccc" }}>{p.name}</span>
+                          <span style={{ fontSize: 8, letterSpacing: 1, padding: "2px 6px", borderRadius: 2, background: ow.color+"15", color: ow.color, marginLeft: 8 }}>{ow.label}</span>
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
+                        <span style={{ fontSize: 11, color: "#666" }}>{fmtDate(p.start)} → {fmtDate(p.end)}</span>
+                        <span style={{ fontSize: 10, color: "#444", minWidth: 30, textAlign: "right" }}>{p.duration}d</span>
+                        <span style={{ fontSize: 10, color: "#E31937", fontWeight: 600, minWidth: 40, textAlign: "right" }}>{p.start <= target ? `T-${tW}w` : `T+${tW}w`}</span>
+                      </div>
                     </div>
                   );
                 })}
